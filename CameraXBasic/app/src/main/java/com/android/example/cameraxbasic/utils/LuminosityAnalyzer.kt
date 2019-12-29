@@ -15,12 +15,12 @@ import kotlin.collections.ArrayList
  * we compute the average luminosity of the image by looking at the Y plane of the YUV frame.
  */
 class LuminosityAnalyzer(listener: LumaListener? = null) : ImageAnalysis.Analyzer {
+
     private val frameRateWindow = 8
     private val frameTimestamps = ArrayDeque<Long>(5)
     private val listeners = ArrayList<LumaListener>().apply { listener?.let { add(it) } }
     private var lastAnalyzedTimestamp = 0L
     var framesPerSecond: Double = -1.0
-        private set
 
     /**
      * Used to add listeners that will be called with each luma computed

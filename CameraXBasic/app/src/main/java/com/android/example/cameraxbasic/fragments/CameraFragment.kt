@@ -24,10 +24,8 @@ import android.content.IntentFilter
 import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
-import android.hardware.Camera
 import android.hardware.display.DisplayManager
 import android.media.MediaScannerConnection
-import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.util.DisplayMetrics
@@ -39,17 +37,8 @@ import android.view.View
 import android.view.ViewGroup
 import android.webkit.MimeTypeMap
 import android.widget.ImageButton
-import androidx.camera.core.AspectRatio
-import androidx.camera.core.CameraX
-import androidx.camera.core.ImageAnalysis
-import androidx.camera.core.ImageAnalysisConfig
-import androidx.camera.core.ImageCapture
-import androidx.camera.core.ImageCapture.CaptureMode
+import androidx.camera.core.*
 import androidx.camera.core.ImageCapture.Metadata
-import androidx.camera.core.ImageCaptureConfig
-import androidx.camera.core.ImageProxy
-import androidx.camera.core.Preview
-import androidx.camera.core.PreviewConfig
 import androidx.navigation.Navigation
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.ContextCompat
@@ -67,13 +56,9 @@ import com.bumptech.glide.request.RequestOptions
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.io.File
-import java.lang.Exception
-import java.nio.ByteBuffer
 import java.text.SimpleDateFormat
-import java.util.ArrayDeque
 import java.util.Locale
 import java.util.concurrent.Executor
-import java.util.concurrent.TimeUnit
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -96,7 +81,10 @@ class CameraFragment : Fragment() {
     private lateinit var mainExecutor: Executor
 
     private var displayId = -1
-    private var lensFacing = CameraX.LensFacing.BACK
+
+    // TODO: this needs fixing.
+    // private var lensFacing = CameraX.LensFacing.BACK
+
     private var preview: Preview? = null
     private var imageCapture: ImageCapture? = null
     private var imageAnalyzer: ImageAnalysis? = null
@@ -128,8 +116,10 @@ class CameraFragment : Fragment() {
         override fun onDisplayRemoved(displayId: Int) = Unit
         override fun onDisplayChanged(displayId: Int) = view?.let { view ->
             if (displayId == this@CameraFragment.displayId) {
-                Log.d(TAG, "Rotation changed: ${view.display.rotation}")
-                preview?.setTargetRotation(view.display.rotation)
+                Log.d(LOG_TAG, "Rotation changed: ${view.display.rotation}")
+
+                // TODO: this needs fixing.
+                // preview?.setTargetRotation(view.display.rotation)
                 imageCapture?.setTargetRotation(view.display.rotation)
                 imageAnalyzer?.setTargetRotation(view.display.rotation)
             }
@@ -144,10 +134,11 @@ class CameraFragment : Fragment() {
     override fun onResume() {
         super.onResume()
         // Make sure that all permissions are still present, since user could have removed them
-        //  while the app was on paused state
+        // while the app was in paused state
         if (!PermissionsFragment.hasPermissions(requireContext())) {
             Navigation.findNavController(requireActivity(), R.id.fragment_container).navigate(
-                    CameraFragmentDirections.actionCameraToPermissions())
+                CameraFragmentDirections.actionCameraToPermissions()
+            )
         }
     }
 
@@ -187,12 +178,12 @@ class CameraFragment : Fragment() {
     private val imageSavedListener = object : ImageCapture.OnImageSavedCallback {
 
         override fun onError(imageCaptureError: Int, message: String, cause: Throwable?) {
-            Log.e(TAG, "Photo capture failed: $message")
+            Log.e(LOG_TAG, "Photo capture failed: $message")
             cause?.printStackTrace()
         }
 
         override fun onImageSaved(photoFile: File) {
-            Log.d(TAG, "Photo capture succeeded: ${photoFile.absolutePath}")
+            Log.d(LOG_TAG, "Photo capture succeeded: ${photoFile.absolutePath}")
 
             // We can only change the foreground Drawable using API level 23+ API
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -204,8 +195,12 @@ class CameraFragment : Fragment() {
             // Implicit broadcasts will be ignored for devices running API
             // level >= 24, so if you only target 24+ you can remove this statement
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
+                // TODO: this needs fixing.
+                /*
                 requireActivity().sendBroadcast(
-                        Intent(Camera.ACTION_NEW_PICTURE, Uri.fromFile(photoFile)))
+                    Intent(Camera.ACTION_NEW_PICTURE, Uri.fromFile(photoFile))
+                )
+                */
             }
 
             // If the folder selected is an external media directory, this is unnecessary
@@ -269,13 +264,16 @@ class CameraFragment : Fragment() {
     }
 
     /** Declare and bind preview, capture and analysis use cases */
+    // TODO: this requires fixing, it's broken altogether.
     private fun bindCameraUseCases() {
 
         // Get screen metrics used to setup camera for full screen resolution
         val metrics = DisplayMetrics().also { viewFinder.display.getRealMetrics(it) }
-        Log.d(TAG, "Screen metrics: ${metrics.widthPixels} x ${metrics.heightPixels}")
+        Log.d(LOG_TAG, "Screen metrics: ${metrics.widthPixels} x ${metrics.heightPixels}")
         val screenAspectRatio = aspectRatio(metrics.widthPixels, metrics.heightPixels)
-        Log.d(TAG, "Preview aspect ratio: $screenAspectRatio")
+        Log.d(LOG_TAG, "Preview aspect ratio: $screenAspectRatio")
+
+        /*
         // Set up the view finder use case to display camera preview
         val viewFinderConfig = PreviewConfig.Builder().apply {
             setLensFacing(lensFacing)
@@ -324,9 +322,10 @@ class CameraFragment : Fragment() {
                                 "Frames per second: ${"%.01f".format(fps)}")
                     })
         }
+        */
 
         // Apply declared configs to CameraX using the same lifecycle owner
-        CameraX.bindToLifecycle(viewLifecycleOwner, preview, imageCapture, imageAnalyzer)
+        // CameraX.bindToLifecycle(viewLifecycleOwner, preview, imageCapture, imageAnalyzer)
     }
 
     /**
@@ -340,7 +339,7 @@ class CameraFragment : Fragment() {
      *  @param height - preview height
      *  @return suitable aspect ratio
      */
-    private fun aspectRatio(width: Int, height: Int): AspectRatio {
+    private fun aspectRatio(width: Int, height: Int): Int {
         val previewRatio = max(width, height).toDouble() / min(width, height)
 
         if (abs(previewRatio - RATIO_4_3_VALUE) <= abs(previewRatio - RATIO_16_9_VALUE)) {
@@ -371,8 +370,10 @@ class CameraFragment : Fragment() {
 
                 // Setup image capture metadata
                 val metadata = Metadata().apply {
+
                     // Mirror image when using the front camera
-                    isReversedHorizontal = lensFacing == CameraX.LensFacing.FRONT
+                    // TODO: this requires fixing.
+                    // isReversedHorizontal = lensFacing == CameraX.LensFacing.FRONT
                 }
 
                 // Setup image capture listener which is triggered after photo has been taken
@@ -393,21 +394,28 @@ class CameraFragment : Fragment() {
 
         // Listener for button used to switch cameras
         controls.findViewById<ImageButton>(R.id.camera_switch_button).setOnClickListener {
+
+            // TODO: this requires fixing.
+            /*
             lensFacing = if (CameraX.LensFacing.FRONT == lensFacing) {
                 CameraX.LensFacing.BACK
             } else {
                 CameraX.LensFacing.FRONT
             }
+
             try {
+
                 // Only bind use cases if we can query a camera with this orientation
                 CameraX.getCameraWithLensFacing(lensFacing)
 
                 // Unbind all use cases and bind them again with the new lens facing configuration
                 CameraX.unbindAll()
                 bindCameraUseCases()
+
             } catch (exc: Exception) {
                 // Do nothing
             }
+            */
         }
 
         // Listener for button used to view last photo
@@ -418,7 +426,8 @@ class CameraFragment : Fragment() {
     }
 
     companion object {
-        private const val TAG = "CameraXBasic"
+
+        private const val LOG_TAG = "CameraXBasic"
         private const val FILENAME = "yyyy-MM-dd-HH-mm-ss-SSS"
         private const val PHOTO_EXTENSION = ".jpg"
         private const val RATIO_4_3_VALUE = 4.0 / 3.0
@@ -426,7 +435,7 @@ class CameraFragment : Fragment() {
 
         /** Helper function used to create a timestamped file */
         private fun createFile(baseFolder: File, format: String, extension: String) =
-                File(baseFolder, SimpleDateFormat(format, Locale.US)
-                        .format(System.currentTimeMillis()) + extension)
+            File(baseFolder, SimpleDateFormat(format, Locale.US)
+                .format(System.currentTimeMillis()) + extension)
     }
 }
