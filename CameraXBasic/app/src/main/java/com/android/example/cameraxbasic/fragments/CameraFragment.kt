@@ -117,6 +117,9 @@ class CameraFragment : Fragment() {
 
                 // TODO: this needs fixing.
                 // preview?.setTargetRotation(view.display.rotation)
+                preview = Preview.Builder().setTargetAspectRatio(AspectRatio.RATIO_16_9).build()
+                // preview.setPreviewSurfaceProvider(previewView.previewSurfaceProvider)
+
                 imageCapture?.setTargetRotation(view.display.rotation)
                 imageAnalyzer?.setTargetRotation(view.display.rotation)
             }
