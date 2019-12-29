@@ -184,11 +184,11 @@ class CameraFragment : Fragment() {
     }
 
     /** Define callback that will be triggered after a photo has been taken and saved to disk */
-    private val imageSavedListener = object : ImageCapture.OnImageSavedListener {
-        override fun onError(
-                error: ImageCapture.ImageCaptureError, message: String, exc: Throwable?) {
+    private val imageSavedListener = object : ImageCapture.OnImageSavedCallback {
+
+        override fun onError(imageCaptureError: Int, message: String, cause: Throwable?) {
             Log.e(TAG, "Photo capture failed: $message")
-            exc?.printStackTrace()
+            cause?.printStackTrace()
         }
 
         override fun onImageSaved(photoFile: File) {
@@ -326,8 +326,7 @@ class CameraFragment : Fragment() {
         }
 
         // Apply declared configs to CameraX using the same lifecycle owner
-        CameraX.bindToLifecycle(
-                viewLifecycleOwner, preview, imageCapture, imageAnalyzer)
+        CameraX.bindToLifecycle(viewLifecycleOwner, preview, imageCapture, imageAnalyzer)
     }
 
     /**
