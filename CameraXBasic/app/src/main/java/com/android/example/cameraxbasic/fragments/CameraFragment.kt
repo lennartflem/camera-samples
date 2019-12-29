@@ -30,17 +30,13 @@ import android.os.Build
 import android.os.Bundle
 import android.util.DisplayMetrics
 import android.util.Log
-import android.view.KeyEvent
-import android.view.LayoutInflater
-import android.view.View
-import android.view.ViewGroup
+import android.view.*
 import android.webkit.MimeTypeMap
 import android.widget.ImageButton
 import androidx.camera.core.*
 import androidx.camera.core.ImageCapture.Metadata
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
-import androidx.navigation.Navigation
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.ContextCompat
 import androidx.core.view.setPadding
@@ -48,9 +44,14 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
-import com.android.example.cameraxbasic.*
+import androidx.navigation.Navigation
+import com.android.example.cameraxbasic.KEY_EVENT_ACTION
+import com.android.example.cameraxbasic.KEY_EVENT_EXTRA
+import com.android.example.cameraxbasic.MainActivity
 import com.android.example.cameraxbasic.R
-import com.android.example.cameraxbasic.utils.*
+import com.android.example.cameraxbasic.utils.ANIMATION_FAST_MILLIS
+import com.android.example.cameraxbasic.utils.ANIMATION_SLOW_MILLIS
+import com.android.example.cameraxbasic.utils.simulateClick
 import com.bumptech.glide.Glide
 import com.bumptech.glide.request.RequestOptions
 import com.google.common.util.concurrent.ListenableFuture
@@ -80,10 +81,11 @@ class CameraFragment: Fragment() {
     private lateinit var outputDirectory: File
     private lateinit var broadcastManager: LocalBroadcastManager
     private lateinit var cameraProviderFuture: ListenableFuture<ProcessCameraProvider>
+    private lateinit var cameraProvider: ProcessCameraProvider
+    private lateinit var cameraSelector: CameraSelector
     private lateinit var mainExecutor: Executor
 
     private var displayId = -1
-    private var lensFacing = CameraSelector.LENS_FACING_BACK
     private var preview: Preview? = null
     private var imageCapture: ImageCapture? = null
     private var imageAnalyzer: ImageAnalysis? = null
@@ -142,11 +144,15 @@ class CameraFragment: Fragment() {
     }
 
     override fun onDestroyView() {
+
         super.onDestroyView()
 
         // Unregister the broadcast receivers and listeners
         broadcastManager.unregisterReceiver(volumeDownReceiver)
         displayManager.unregisterDisplayListener(displayListener)
+
+        // experimental
+        cameraProvider.unbindAll()
     }
 
     override fun onCreateView(
@@ -206,8 +212,7 @@ class CameraFragment: Fragment() {
             // If the folder selected is an external media directory, this is unnecessary
             // but otherwise other apps will not be able to access our images unless we
             // scan them using [MediaScannerConnection]
-            val mimeType = MimeTypeMap.getSingleton()
-                    .getMimeTypeFromExtension(photoFile.extension)
+            val mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(photoFile.extension)
             MediaScannerConnection.scanFile(
                     context, arrayOf(photoFile.absolutePath), arrayOf(mimeType), null)
         }
@@ -226,8 +231,7 @@ class CameraFragment: Fragment() {
         broadcastManager.registerReceiver(volumeDownReceiver, filter)
 
         // Every time the orientation of device changes, recompute layout
-        displayManager = viewFinder.context
-                .getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
+        displayManager = requireContext().getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
         displayManager.registerDisplayListener(displayListener, null)
 
         // Determine the output directory
@@ -235,6 +239,7 @@ class CameraFragment: Fragment() {
 
         // Wait for the views to be properly laid out
         viewFinder.post {
+
             // Keep track of the display in which this view is attached
             displayId = viewFinder.display.displayId
 
@@ -275,27 +280,6 @@ class CameraFragment: Fragment() {
         val screenAspectRatio = aspectRatio(metrics.widthPixels, metrics.heightPixels)
         Log.d(LOG_TAG, "Preview aspect ratio: $screenAspectRatio")
 
-        // Initialize UseCase
-        // preview = Preview.Builder().setTargetAspectRatio(AspectRatio.RATIO_16_9).build()
-        // preview?.setPreviewSurfaceProvider(viewFinder.previewSurfaceProvider)
-
-        /* Bind the cameraProvider to the LifeCycleOwner */
-        cameraProviderFuture = ProcessCameraProvider.getInstance(this.requireContext())
-        cameraProviderFuture.addListener(Runnable {
-
-            val cameraProvider = cameraProviderFuture.get()
-            val cameraSelector = CameraSelector.Builder().requireLensFacing(CameraSelector.LENS_FACING_BACK).build()
-
-            // TODO: currently not passing any analyzer
-            // Apply declared configs to CameraX using the same lifecycle owner
-            // CameraX.bindToLifecycle(viewLifecycleOwner, preview, imageCapture, imageAnalyzer)
-
-            preview = Preview.Builder().setTargetAspectRatio(AspectRatio.RATIO_16_9).build()
-            preview?.setPreviewSurfaceProvider(viewFinder.previewSurfaceProvider)
-            cameraProvider.bindToLifecycle(this as LifecycleOwner, cameraSelector, preview)
-
-        }, ContextCompat.getMainExecutor(this.requireContext()))
-
         /*
         // Set up the view finder use case to display camera preview
         val viewFinderConfig = PreviewConfig.Builder().apply {
@@ -309,7 +293,9 @@ class CameraFragment: Fragment() {
 
         // Use the auto-fit preview builder to automatically handle size and orientation changes
         preview = AutoFitPreviewBuilder.build(viewFinderConfig, viewFinder)
+        */
 
+        /*
         // Set up the capture use case to allow users to take photos
         val imageCaptureConfig = ImageCaptureConfig.Builder().apply {
             setLensFacing(lensFacing)
@@ -346,6 +332,43 @@ class CameraFragment: Fragment() {
                     })
         }
         */
+
+        // Bind the cameraProvider to the LifeCycleOwner
+        cameraSelector = CameraSelector.Builder().requireLensFacing(CameraSelector.LENS_FACING_BACK).build()
+        cameraProviderFuture = ProcessCameraProvider.getInstance(this.requireContext())
+        cameraProviderFuture.addListener(Runnable {
+
+            cameraProvider = cameraProviderFuture.get()
+
+            // Initialize UseCase
+            preview = Preview.Builder().setTargetAspectRatio(AspectRatio.RATIO_16_9).build()
+            preview?.setPreviewSurfaceProvider(viewFinder.previewSurfaceProvider)
+
+            // TODO: imageCapture & imageAnalyzer need to be defined
+            // imageCapture =
+
+            // Apply declared configs to CameraX using the same lifecycle owner
+            if(imageCapture != null && imageAnalyzer != null) {
+                cameraProvider.bindToLifecycle(
+                    this as LifecycleOwner, cameraSelector, imageCapture, imageAnalyzer
+                )
+            } else {
+                bindPreview(cameraProvider)
+            }
+
+        }, ContextCompat.getMainExecutor(this.requireContext()))
+    }
+
+    fun bindPreview(cameraProvider: ProcessCameraProvider) {
+
+        preview = Preview.Builder().setTargetName("Preview").build()
+        preview?.setPreviewSurfaceProvider(viewFinder.getPreviewSurfaceProvider())
+
+        cameraSelector = CameraSelector.Builder()
+            .requireLensFacing(CameraSelector.LENS_FACING_BACK)
+            .build()
+
+        cameraProvider.bindToLifecycle(this as LifecycleOwner, cameraSelector, preview)
     }
 
     /**
@@ -361,7 +384,6 @@ class CameraFragment: Fragment() {
      */
     private fun aspectRatio(width: Int, height: Int): Int {
         val previewRatio = max(width, height).toDouble() / min(width, height)
-
         if (abs(previewRatio - RATIO_4_3_VALUE) <= abs(previewRatio - RATIO_16_9_VALUE)) {
             return AspectRatio.RATIO_4_3
         }
