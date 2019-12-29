@@ -32,27 +32,28 @@ import android.util.DisplayMetrics
 import android.util.Log
 import android.view.KeyEvent
 import android.view.LayoutInflater
-import android.view.TextureView
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.MimeTypeMap
 import android.widget.ImageButton
 import androidx.camera.core.*
 import androidx.camera.core.ImageCapture.Metadata
+import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.view.PreviewView
 import androidx.navigation.Navigation
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.ContextCompat
 import androidx.core.view.setPadding
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
-import com.android.example.cameraxbasic.KEY_EVENT_ACTION
-import com.android.example.cameraxbasic.KEY_EVENT_EXTRA
-import com.android.example.cameraxbasic.MainActivity
+import com.android.example.cameraxbasic.*
 import com.android.example.cameraxbasic.R
 import com.android.example.cameraxbasic.utils.*
 import com.bumptech.glide.Glide
 import com.bumptech.glide.request.RequestOptions
+import com.google.common.util.concurrent.ListenableFuture
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.io.File
@@ -72,12 +73,13 @@ typealias LumaListener = (luma: Double) -> Unit
  * - Photo taking
  * - Image analysis
  */
-class CameraFragment : Fragment() {
+class CameraFragment: Fragment() {
 
     private lateinit var container: ConstraintLayout
-    private lateinit var viewFinder: TextureView
+    private lateinit var viewFinder: PreviewView
     private lateinit var outputDirectory: File
     private lateinit var broadcastManager: LocalBroadcastManager
+    private lateinit var cameraProviderFuture: ListenableFuture<ProcessCameraProvider>
     private lateinit var mainExecutor: Executor
 
     private var displayId = -1
@@ -92,8 +94,7 @@ class CameraFragment : Fragment() {
             when (intent.getIntExtra(KEY_EVENT_EXTRA, KeyEvent.KEYCODE_UNKNOWN)) {
                 // When the volume down button is pressed, simulate a shutter button click
                 KeyEvent.KEYCODE_VOLUME_DOWN -> {
-                    val shutter = container
-                            .findViewById<ImageButton>(R.id.camera_capture_button)
+                    val shutter = container.findViewById<ImageButton>(R.id.camera_capture_button)
                     shutter.simulateClick()
                 }
             }
@@ -117,8 +118,6 @@ class CameraFragment : Fragment() {
 
                 // TODO: this needs fixing.
                 // preview?.setTargetRotation(view.display.rotation)
-                preview = Preview.Builder().setTargetAspectRatio(AspectRatio.RATIO_16_9).build()
-                // preview.setPreviewSurfaceProvider(previewView.previewSurfaceProvider)
 
                 imageCapture?.setTargetRotation(view.display.rotation)
                 imageAnalyzer?.setTargetRotation(view.display.rotation)
@@ -157,6 +156,7 @@ class CameraFragment : Fragment() {
             inflater.inflate(R.layout.fragment_camera, container, false)
 
     private fun setGalleryThumbnail(file: File) {
+
         // Reference of the view that holds the gallery thumbnail
         val thumbnail = container.findViewById<ImageButton>(R.id.photo_view_button)
 
@@ -168,9 +168,9 @@ class CameraFragment : Fragment() {
 
             // Load thumbnail into circular button using Glide
             Glide.with(thumbnail)
-                    .load(file)
-                    .apply(RequestOptions.circleCropTransform())
-                    .into(thumbnail)
+                .load(file)
+                .apply(RequestOptions.circleCropTransform())
+                .into(thumbnail)
         }
     }
 
@@ -213,8 +213,9 @@ class CameraFragment : Fragment() {
         }
     }
 
-    @SuppressLint("MissingPermission")
+    @SuppressLint("MissingPermission", "DefaultLocale")
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+
         super.onViewCreated(view, savedInstanceState)
         container = view as ConstraintLayout
         viewFinder = container.findViewById(R.id.view_finder)
@@ -270,8 +271,30 @@ class CameraFragment : Fragment() {
         // Get screen metrics used to setup camera for full screen resolution
         val metrics = DisplayMetrics().also { viewFinder.display.getRealMetrics(it) }
         Log.d(LOG_TAG, "Screen metrics: ${metrics.widthPixels} x ${metrics.heightPixels}")
+
         val screenAspectRatio = aspectRatio(metrics.widthPixels, metrics.heightPixels)
         Log.d(LOG_TAG, "Preview aspect ratio: $screenAspectRatio")
+
+        // Initialize UseCase
+        // preview = Preview.Builder().setTargetAspectRatio(AspectRatio.RATIO_16_9).build()
+        // preview?.setPreviewSurfaceProvider(viewFinder.previewSurfaceProvider)
+
+        /* Bind the cameraProvider to the LifeCycleOwner */
+        cameraProviderFuture = ProcessCameraProvider.getInstance(this.requireContext())
+        cameraProviderFuture.addListener(Runnable {
+
+            val cameraProvider = cameraProviderFuture.get()
+            val cameraSelector = CameraSelector.Builder().requireLensFacing(CameraSelector.LENS_FACING_BACK).build()
+
+            // TODO: currently not passing any analyzer
+            // Apply declared configs to CameraX using the same lifecycle owner
+            // CameraX.bindToLifecycle(viewLifecycleOwner, preview, imageCapture, imageAnalyzer)
+
+            preview = Preview.Builder().setTargetAspectRatio(AspectRatio.RATIO_16_9).build()
+            preview?.setPreviewSurfaceProvider(viewFinder.previewSurfaceProvider)
+            cameraProvider.bindToLifecycle(this as LifecycleOwner, cameraSelector, preview)
+
+        }, ContextCompat.getMainExecutor(this.requireContext()))
 
         /*
         // Set up the view finder use case to display camera preview
@@ -318,14 +341,11 @@ class CameraFragment : Fragment() {
                         // We log image analysis results here --
                         // you should do something useful instead!
                         val fps = (analyzer as LuminosityAnalyzer).framesPerSecond
-                        Log.d(TAG, "Average luminosity: $luma. " +
+                        Log.d(LOG_TAG, "Average luminosity: $luma. " +
                                 "Frames per second: ${"%.01f".format(fps)}")
                     })
         }
         */
-
-        // Apply declared configs to CameraX using the same lifecycle owner
-        // CameraX.bindToLifecycle(viewLifecycleOwner, preview, imageCapture, imageAnalyzer)
     }
 
     /**

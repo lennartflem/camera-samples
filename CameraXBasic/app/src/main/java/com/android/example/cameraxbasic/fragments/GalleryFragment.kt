@@ -16,6 +16,7 @@
 
 package com.android.example.cameraxbasic.fragments
 
+import android.annotation.SuppressLint
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -44,7 +45,7 @@ import com.android.example.cameraxbasic.R
 val EXTENSION_WHITELIST = arrayOf("JPG")
 
 /** Fragment used to present the user with a gallery of photos taken */
-class GalleryFragment internal constructor() : Fragment() {
+class GalleryFragment internal constructor(): Fragment() {
 
     /** AndroidX navigation arguments */
     private val args: GalleryFragmentArgs by navArgs()
@@ -58,6 +59,7 @@ class GalleryFragment internal constructor() : Fragment() {
         override fun getItemPosition(obj: Any): Int = POSITION_NONE
     }
 
+    @SuppressLint("DefaultLocale")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 

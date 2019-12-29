@@ -24,11 +24,7 @@ import java.io.File
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import android.content.Intent
 import android.widget.FrameLayout
-import androidx.camera.core.CameraSelector
 import com.android.example.cameraxbasic.utils.FLAGS_FULLSCREEN
-import androidx.camera.lifecycle.ProcessCameraProvider
-import androidx.core.content.ContextCompat
-import com.google.common.util.concurrent.ListenableFuture
 
 const val KEY_EVENT_ACTION = "key_event_action"
 const val KEY_EVENT_EXTRA = "key_event_extra"
@@ -38,24 +34,14 @@ private const val IMMERSIVE_FLAG_TIMEOUT = 500L
  * Main entry point into our app. This app follows the single-activity pattern, and all
  * functionality is implemented in the form of fragments.
  */
-class MainActivity : AppCompatActivity() {
+class MainActivity: AppCompatActivity() {
 
     private lateinit var container: FrameLayout
-    private lateinit var cameraProviderFuture : ListenableFuture<ProcessCameraProvider>
-    val cameraSelector = CameraSelector.Builder().requireLensFacing(CameraSelector.LENS_FACING_BACK).build()
 
     override fun onCreate(savedInstanceState: Bundle?) {
-
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         container = findViewById(R.id.fragment_container)
-
-        /* binding the ListenableFuture to the LifeCycleOwner */
-        cameraProviderFuture = ProcessCameraProvider.getInstance(this);
-        cameraProviderFuture.addListener(Runnable {
-            val cameraProvider = cameraProviderFuture.get()
-            cameraProvider.bindToLifecycle(this, cameraSelector)
-        }, ContextCompat.getMainExecutor(this))
     }
 
     override fun onResume() {
