@@ -31,7 +31,6 @@ import androidx.camera.core.PreviewConfig
 import java.lang.IllegalArgumentException
 import java.lang.ref.WeakReference
 import kotlin.math.max
-import kotlin.math.roundToInt
 
 /**
  * Builder for [Preview] that takes in a [WeakReference] of the view finder and [PreviewConfig],
@@ -41,7 +40,7 @@ class AutoFitPreviewBuilder private constructor(
         config: PreviewConfig, viewFinderRef: WeakReference<TextureView>) {
 
     /** Public instance of preview use-case which can be used by consumers of this adapter */
-    val useCase: Preview
+    private lateinit var useCase: Preview
 
     /** Internal variable used to keep track of the use case's output rotation */
     private var bufferRotation: Int = 0
@@ -89,10 +88,11 @@ class AutoFitPreviewBuilder private constructor(
         viewFinderRotation = getDisplaySurfaceRotation(viewFinder.display) ?: 0
 
         // Initialize public use-case with the given config
+        /*
         useCase = Preview(config)
 
         // Every time the view finder is updated, recompute layout
-        useCase.setOnPreviewOutputUpdateListener(Preview.OnPreviewOutputUpdateListener {
+        useCase.setOnPreviewOutputUpdateListener(Preview.PreviewOutputUpdateListener {
             val viewFinder =
                     viewFinderRef.get() ?: return@OnPreviewOutputUpdateListener
             Log.d(TAG, "Preview output changed. " +
@@ -111,6 +111,7 @@ class AutoFitPreviewBuilder private constructor(
             val rotation = getDisplaySurfaceRotation(viewFinder.display)
             updateTransform(viewFinder, rotation, it.textureSize, viewFinderDimens)
         })
+        */
 
         // Every time the provided texture view changes, recompute layout
         viewFinder.addOnLayoutChangeListener { view, left, top, right, bottom, _, _, _, _ ->
@@ -256,6 +257,7 @@ class AutoFitPreviewBuilder private constructor(
          * of [Preview] which automatically adjusts in size and rotation to compensate for
          * config changes.
          */
+        // TODO: the useCase might be broken now.
         fun build(config: PreviewConfig, viewFinder: TextureView) =
                 AutoFitPreviewBuilder(config, WeakReference(viewFinder)).useCase
     }

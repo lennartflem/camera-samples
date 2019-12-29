@@ -81,10 +81,7 @@ class CameraFragment : Fragment() {
     private lateinit var mainExecutor: Executor
 
     private var displayId = -1
-
-    // TODO: this needs fixing.
-    // private var lensFacing = CameraX.LensFacing.BACK
-
+    private var lensFacing = CameraSelector.LENS_FACING_BACK
     private var preview: Preview? = null
     private var imageCapture: ImageCapture? = null
     private var imageAnalyzer: ImageAnalysis? = null
@@ -264,7 +261,7 @@ class CameraFragment : Fragment() {
     }
 
     /** Declare and bind preview, capture and analysis use cases */
-    // TODO: this requires fixing, it's broken altogether.
+    // TODO: Camera selection is now done by a camera selector, instead of per-use case
     private fun bindCameraUseCases() {
 
         // Get screen metrics used to setup camera for full screen resolution
