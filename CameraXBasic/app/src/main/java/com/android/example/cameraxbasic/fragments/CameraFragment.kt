@@ -26,6 +26,7 @@ import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.hardware.display.DisplayManager
 import android.media.MediaScannerConnection
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.util.DisplayMetrics
@@ -200,12 +201,9 @@ class CameraFragment: Fragment() {
             // Implicit broadcasts will be ignored for devices running API
             // level >= 24, so if you only target 24+ you can remove this statement
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
-                // TODO: this needs fixing.
-                /*
                 requireActivity().sendBroadcast(
-                    Intent(Camera.ACTION_NEW_PICTURE, Uri.fromFile(photoFile))
+                    Intent(android.hardware.Camera.ACTION_NEW_PICTURE, Uri.fromFile(photoFile))
                 )
-                */
             }
 
             // If the folder selected is an external media directory, this is unnecessary
@@ -426,7 +424,7 @@ class CameraFragment: Fragment() {
 
         // Listener for button used to view last photo
         controls.findViewById<ImageButton>(R.id.photo_view_button).setOnClickListener {
-            Navigation.findNavController(this.requireActivity(), R.id.fragment_container).navigate(
+            Navigation.findNavController(requireActivity(), R.id.fragment_container).navigate(
                     CameraFragmentDirections.actionCameraToGallery(outputDirectory.absolutePath))
         }
     }
