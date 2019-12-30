@@ -21,7 +21,6 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.ImageButton
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentManager
 import androidx.viewpager.widget.ViewPager
@@ -29,12 +28,14 @@ import java.io.File
 import android.content.Intent
 import android.media.MediaScannerConnection
 import android.os.Build
+import android.util.Log
 import android.webkit.MimeTypeMap
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.FileProvider
 import com.android.example.cameraxbasic.BuildConfig
 import com.android.example.cameraxbasic.utils.padWithDisplayCutout
 import androidx.appcompat.app.AlertDialog
+import androidx.appcompat.widget.AppCompatImageButton
 import androidx.fragment.app.FragmentPagerAdapter
 import androidx.navigation.Navigation
 import androidx.navigation.fragment.navArgs
@@ -73,6 +74,7 @@ class GalleryFragment internal constructor(): Fragment() {
         mediaList = rootDirectory.listFiles { file ->
             EXTENSION_WHITELIST.contains(file.extension.toUpperCase())
         }?.sortedDescending()?.toMutableList() ?: mutableListOf()
+
     }
 
     override fun onCreateView(
@@ -82,6 +84,7 @@ class GalleryFragment internal constructor(): Fragment() {
     ): View? = inflater.inflate(R.layout.fragment_gallery, container, false)
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+
         super.onViewCreated(view, savedInstanceState)
 
         // Populate the ViewPager and implement a cache of two media items
@@ -97,63 +100,74 @@ class GalleryFragment internal constructor(): Fragment() {
         }
 
         // Handle back button press
-        view.findViewById<ImageButton>(R.id.back_button).setOnClickListener {
+        view.findViewById<AppCompatImageButton>(R.id.back_button).setOnClickListener {
             Navigation.findNavController(requireActivity(), R.id.fragment_container).navigateUp()
+            Log.d("NavController", "navigating up")
         }
 
-        // Handle share button press
-        view.findViewById<ImageButton>(R.id.share_button).setOnClickListener {
-            // Make sure that we have a file to share
-            mediaList.getOrNull(mediaViewPager.currentItem)?.let { mediaFile ->
+        if(mediaList.size == 0) {
 
-                // Create a sharing intent
-                val intent = Intent().apply {
-                    // Infer media type from file extension
-                    val mediaType = MimeTypeMap.getSingleton()
-                            .getMimeTypeFromExtension(mediaFile.extension)
-                    // Get URI from our FileProvider implementation
-                    val uri = FileProvider.getUriForFile(
-                            view.context, BuildConfig.APPLICATION_ID + ".provider", mediaFile)
-                    // Set the appropriate intent extra, type, action and flags
-                    putExtra(Intent.EXTRA_STREAM, uri)
-                    type = mediaType
-                    action = Intent.ACTION_SEND
-                    flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+            // There are no photos to share or to delete
+            view.findViewById<AppCompatImageButton>(R.id.share_button).visibility = View.INVISIBLE
+            view.findViewById<AppCompatImageButton>(R.id.delete_button).visibility = View.INVISIBLE
+
+        } else {
+
+            // Handle share button press
+            view.findViewById<AppCompatImageButton>(R.id.share_button).setOnClickListener {
+
+                // Make sure that we have a file to share
+                mediaList.getOrNull(mediaViewPager.currentItem)?.let { mediaFile ->
+
+                    // Create a sharing intent
+                    val intent = Intent().apply {
+                        // Infer media type from file extension
+                        val mediaType = MimeTypeMap.getSingleton()
+                                .getMimeTypeFromExtension(mediaFile.extension)
+                        // Get URI from our FileProvider implementation
+                        val uri = FileProvider.getUriForFile(
+                                view.context, BuildConfig.APPLICATION_ID + ".provider", mediaFile)
+                        // Set the appropriate intent extra, type, action and flags
+                        putExtra(Intent.EXTRA_STREAM, uri)
+                        type = mediaType
+                        action = Intent.ACTION_SEND
+                        flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    }
+
+                    // Launch the intent letting the user choose which app to share with
+                    startActivity(Intent.createChooser(intent, getString(R.string.share_hint)))
                 }
-
-                // Launch the intent letting the user choose which app to share with
-                startActivity(Intent.createChooser(intent, getString(R.string.share_hint)))
             }
-        }
 
-        // Handle delete button press
-        view.findViewById<ImageButton>(R.id.delete_button).setOnClickListener {
-            AlertDialog.Builder(view.context, android.R.style.Theme_Material_Dialog)
-                    .setTitle(getString(R.string.delete_title))
-                    .setMessage(getString(R.string.delete_dialog))
-                    .setIcon(android.R.drawable.ic_dialog_alert)
-                    .setPositiveButton(android.R.string.yes) { _, _ ->
-                        mediaList.getOrNull(mediaViewPager.currentItem)?.let { mediaFile ->
+            // Handle delete button press
+            view.findViewById<AppCompatImageButton>(R.id.delete_button).setOnClickListener {
+                AlertDialog.Builder(view.context, android.R.style.Theme_Material_Dialog)
+                        .setTitle(getString(R.string.delete_title))
+                        .setMessage(getString(R.string.delete_dialog))
+                        .setIcon(android.R.drawable.ic_dialog_alert)
+                        .setPositiveButton(android.R.string.yes) { _, _ ->
+                            mediaList.getOrNull(mediaViewPager.currentItem)?.let { mediaFile ->
 
-                            // Delete current photo
-                            mediaFile.delete()
+                                // Delete current photo
+                                mediaFile.delete()
 
-                            // Send relevant broadcast to notify other apps of deletion
-                            MediaScannerConnection.scanFile(
-                                    view.context, arrayOf(mediaFile.absolutePath), null, null)
+                                // Send relevant broadcast to notify other apps of deletion
+                                MediaScannerConnection.scanFile(
+                                        view.context, arrayOf(mediaFile.absolutePath), null, null)
 
-                            // Notify our view pager
-                            mediaList.removeAt(mediaViewPager.currentItem)
-                            mediaViewPager.adapter?.notifyDataSetChanged()
+                                // Notify our view pager
+                                mediaList.removeAt(mediaViewPager.currentItem)
+                                mediaViewPager.adapter?.notifyDataSetChanged()
 
-                            // If all photos have been deleted, return to camera
-                            if (mediaList.isEmpty()) {
-                                fragmentManager?.popBackStack()
-                            }
-                        }}
+                                // If all photos have been deleted, return to camera
+                                if (mediaList.isEmpty()) {
+                                    fragmentManager?.popBackStack()
+                                }
+                            }}
 
-                    .setNegativeButton(android.R.string.no, null)
-                    .create().showImmersive()
+                        .setNegativeButton(android.R.string.no, null)
+                        .create().showImmersive()
+            }
         }
     }
 }

@@ -34,6 +34,7 @@ import android.util.Log
 import android.view.*
 import android.webkit.MimeTypeMap
 import android.widget.ImageButton
+import androidx.appcompat.widget.AppCompatImageButton
 import androidx.camera.core.*
 import androidx.camera.core.ImageCapture.Metadata
 import androidx.camera.lifecycle.ProcessCameraProvider
@@ -165,7 +166,7 @@ class CameraFragment: Fragment() {
     private fun setGalleryThumbnail(file: File) {
 
         // Reference of the view that holds the gallery thumbnail
-        val thumbnail = container.findViewById<ImageButton>(R.id.photo_view_button)
+        val thumbnail = container.findViewById<AppCompatImageButton>(R.id.photo_view_button)
 
         // Run the operations in the view's thread
         thumbnail.post {
@@ -212,7 +213,8 @@ class CameraFragment: Fragment() {
             // scan them using [MediaScannerConnection]
             val mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(photoFile.extension)
             MediaScannerConnection.scanFile(
-                    context, arrayOf(photoFile.absolutePath), arrayOf(mimeType), null)
+                context, arrayOf(photoFile.absolutePath), arrayOf(mimeType), null
+            )
         }
     }
 
@@ -248,8 +250,10 @@ class CameraFragment: Fragment() {
             // In the background, load latest photo taken (if any) for gallery thumbnail
             lifecycleScope.launch(Dispatchers.IO) {
                 outputDirectory.listFiles { file ->
-                    EXTENSION_WHITELIST.contains(file.extension.toUpperCase())
-                }?.max()?.let { setGalleryThumbnail(it) }
+                    EXTENSION_WHITELIST.contains(file.extension.toUpperCase(Locale.getDefault()))
+                }?.max()?.let {
+                    setGalleryThumbnail(it)
+                }
             }
         }
     }
@@ -296,7 +300,6 @@ class CameraFragment: Fragment() {
                 // Set initial target rotation, we will have to call this again if rotation changes
                 // during the lifecycle of this use case
                 .setTargetRotation(viewFinder.display.rotation)
-
                 .build()
 
             // ImageAnalysis
@@ -355,6 +358,7 @@ class CameraFragment: Fragment() {
         return AspectRatio.RATIO_16_9
     }
 
+
     /** Method used to re-draw the camera UI controls, called every time configuration changes */
     private fun updateCameraUi() {
 
@@ -367,7 +371,7 @@ class CameraFragment: Fragment() {
         val controls = View.inflate(this.requireContext(), R.layout.camera_ui_container, container)
 
         // Listener for button used to capture photo
-        controls.findViewById<ImageButton>(R.id.camera_capture_button).setOnClickListener {
+        controls.findViewById<AppCompatImageButton>(R.id.camera_capture_button).setOnClickListener {
 
             // Get a stable reference of the modifiable image capture use case
             imageCapture?.let { imageCapture ->
@@ -398,7 +402,7 @@ class CameraFragment: Fragment() {
         }
 
         // Listener for button used to switch cameras
-        controls.findViewById<ImageButton>(R.id.camera_switch_button).setOnClickListener {
+        controls.findViewById<AppCompatImageButton>(R.id.camera_switch_button).setOnClickListener {
 
             lensFacing = if (CameraSelector.LENS_FACING_FRONT == lensFacing) {
                 CameraSelector.LENS_FACING_BACK
@@ -408,22 +412,23 @@ class CameraFragment: Fragment() {
 
             // Unbind all use cases
             cameraProvider.unbindAll()
-
             bindCameraUseCases()
         }
 
         // Listener for button used to view the most recent photo
-        controls.findViewById<ImageButton>(R.id.photo_view_button).setOnClickListener {
-            val dest = CameraFragmentDirections.actionCameraToGallery(outputDirectory.absolutePath)
-            try {
-                this.findNavController().navigate(dest)
-            } catch(e: IllegalArgumentException) {
-                // TODO: crashes on the second time, merely after having deleted a photo -
-                //       ... and them apparently returning to the deleted photo's path ?
-                //       IllegalArgumentException: navigation destination
-                //       com.android.example.cameraxbasic:id/action_camera_to_gallery
-                //       is unknown to this NavController
-                Log.e(LOG_TAG, "" + e.message)
+        controls.findViewById<AppCompatImageButton>(R.id.photo_view_button).setOnClickListener {
+            outputDirectory.listFiles { file ->
+                EXTENSION_WHITELIST.contains(file.extension.toUpperCase(Locale.getDefault()))
+            }?.max()?.let {
+
+                // Only navigate when the gallery has photos
+                val dest = CameraFragmentDirections.actionCameraToGallery(outputDirectory.absolutePath)
+                try {
+                    Log.d("NavController", "navigating to " + dest.rootDirectory)
+                    this.findNavController().navigate(dest)
+                } catch(e: IllegalArgumentException) {
+                    Log.e(LOG_TAG, "" + e.message)
+                }
             }
         }
     }
@@ -438,7 +443,7 @@ class CameraFragment: Fragment() {
 
         /** Helper function used to create a timestamped file */
         private fun createFile(baseFolder: File, format: String, extension: String) =
-            File(baseFolder, SimpleDateFormat(format, Locale.US)
+            File(baseFolder, SimpleDateFormat(format, Locale.getDefault())
                 .format(System.currentTimeMillis()) + extension)
     }
 }
