@@ -417,6 +417,8 @@ class CameraFragment: Fragment() {
 
         // Listener for button used to view the most recent photo
         controls.findViewById<AppCompatImageButton>(R.id.photo_view_button).setOnClickListener {
+
+            // TODO: there might be a more elegant way to know if the gallery has content
             outputDirectory.listFiles { file ->
                 EXTENSION_WHITELIST.contains(file.extension.toUpperCase(Locale.getDefault()))
             }?.max()?.let {
