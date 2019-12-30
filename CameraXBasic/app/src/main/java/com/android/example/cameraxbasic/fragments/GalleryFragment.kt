@@ -24,7 +24,6 @@ import android.view.ViewGroup
 import android.widget.ImageButton
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentManager
-import androidx.fragment.app.FragmentStatePagerAdapter
 import androidx.viewpager.widget.ViewPager
 import java.io.File
 import android.content.Intent
@@ -36,11 +35,11 @@ import androidx.core.content.FileProvider
 import com.android.example.cameraxbasic.BuildConfig
 import com.android.example.cameraxbasic.utils.padWithDisplayCutout
 import androidx.appcompat.app.AlertDialog
+import androidx.fragment.app.FragmentPagerAdapter
 import androidx.navigation.Navigation
 import androidx.navigation.fragment.navArgs
 import com.android.example.cameraxbasic.utils.showImmersive
 import com.android.example.cameraxbasic.R
-
 
 val EXTENSION_WHITELIST = arrayOf("JPG")
 
@@ -53,7 +52,7 @@ class GalleryFragment internal constructor(): Fragment() {
     private lateinit var mediaList: MutableList<File>
 
     /** Adapter class used to present a fragment containing one photo or video as a page */
-    inner class MediaPagerAdapter(fm: FragmentManager) : FragmentStatePagerAdapter(fm) {
+    inner class MediaPagerAdapter(fm: FragmentManager) : FragmentPagerAdapter(fm, BEHAVIOR_RESUME_ONLY_CURRENT_FRAGMENT) {
         override fun getCount(): Int = mediaList.size
         override fun getItem(position: Int): Fragment = PhotoFragment.create(mediaList[position])
         override fun getItemPosition(obj: Any): Int = POSITION_NONE
