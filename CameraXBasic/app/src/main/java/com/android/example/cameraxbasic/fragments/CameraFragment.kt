@@ -46,6 +46,7 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import androidx.navigation.Navigation
+import androidx.navigation.fragment.findNavController
 import com.android.example.cameraxbasic.KEY_EVENT_ACTION
 import com.android.example.cameraxbasic.KEY_EVENT_EXTRA
 import com.android.example.cameraxbasic.MainActivity
@@ -326,24 +327,13 @@ class CameraFragment: Fragment() {
             // Must re-bind, because it gets called several times.
             cameraProvider.unbindAll()
             try {
+                // Note: A variable number of use-cases can be passed here.
                 cameraProvider.bindToLifecycle(this as LifecycleOwner, cameraSelector, imageCapture, imageAnalysis, preview)
             } catch(e: Exception) {
                 Log.e(LOG_TAG, "" + e.message);
             }
 
         }, ContextCompat.getMainExecutor(this.requireContext()))
-    }
-
-    fun bindPreview(cameraProvider: ProcessCameraProvider) {
-
-        preview = Preview.Builder().setTargetName("Preview").build()
-        preview?.setPreviewSurfaceProvider(viewFinder.getPreviewSurfaceProvider())
-
-        cameraSelector = CameraSelector.Builder()
-                .requireLensFacing(lensFacing)
-                .build()
-
-        cameraProvider.bindToLifecycle(this as LifecycleOwner, cameraSelector, preview)
     }
 
     /**
@@ -422,10 +412,19 @@ class CameraFragment: Fragment() {
             bindCameraUseCases()
         }
 
-        // Listener for button used to view last photo
+        // Listener for button used to view the most recent photo
         controls.findViewById<ImageButton>(R.id.photo_view_button).setOnClickListener {
-            Navigation.findNavController(requireActivity(), R.id.fragment_container).navigate(
-                    CameraFragmentDirections.actionCameraToGallery(outputDirectory.absolutePath))
+            val dest = CameraFragmentDirections.actionCameraToGallery(outputDirectory.absolutePath)
+            try {
+                this.findNavController().navigate(dest)
+            } catch(e: IllegalArgumentException) {
+                // TODO: crashes on the second time, merely after having deleted a photo -
+                //       ... and them apparently returning to the deleted photo's path ?
+                //       IllegalArgumentException: navigation destination
+                //       com.android.example.cameraxbasic:id/action_camera_to_gallery
+                //       is unknown to this NavController
+                Log.e(LOG_TAG, "" + e.message)
+            }
         }
     }
 
