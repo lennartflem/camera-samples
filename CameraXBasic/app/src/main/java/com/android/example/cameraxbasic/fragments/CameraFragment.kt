@@ -90,6 +90,9 @@ class CameraFragment: Fragment() {
     private lateinit var cameraProvider: ProcessCameraProvider
     private lateinit var cameraSelector: CameraSelector
 
+    /** Internal reference of the [DisplayManager] */
+    private lateinit var displayManager: DisplayManager
+
     private var preview: Preview? = null
     private var imageCapture: ImageCapture? = null
     private var imageAnalysis: ImageAnalysis? = null
@@ -109,9 +112,6 @@ class CameraFragment: Fragment() {
         }
     }
 
-    /** Internal reference of the [DisplayManager] */
-    private lateinit var displayManager: DisplayManager
-
     /**
      * We need a display listener for orientation changes that do not trigger a configuration
      * change, for example if we choose to override config change in manifest or for 180-degree
@@ -123,13 +123,16 @@ class CameraFragment: Fragment() {
         override fun onDisplayChanged(displayId: Int) = view?.let { view ->
             if (displayId == this@CameraFragment.displayId) {
                 Log.d(LOG_TAG, "Rotation changed: ${view.display.rotation}")
-
-                // TODO: this needs fixing.
-                // preview?.setTargetRotation(view.display.rotation)
-                imageCapture?.setTargetRotation(view.display.rotation)
-                imageAnalysis?.setTargetRotation(view.display.rotation)
+                updateUiRotation(view.display.rotation)
             }
         } ?: Unit
+    }
+
+    // TODO: this needs fixing.
+    private fun updateUiRotation(value: Int){
+        // preview?.setTargetRotation(value)
+        imageCapture?.setTargetRotation(value)
+        imageAnalysis?.setTargetRotation(value)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -268,11 +271,17 @@ class CameraFragment: Fragment() {
      */
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
+        val orientation : Int = getResources().getConfiguration().orientation
+        if(orientation == (Configuration.ORIENTATION_LANDSCAPE)){
+            Log.i(LOG_TAG, "landscape")
+        } else if (orientation == (Configuration.ORIENTATION_PORTRAIT)){
+            Log.i(LOG_TAG, "portrait")
+        }
+
         updateCameraUi()
     }
 
     /** Declare and bind preview, capture and analysis use cases */
-    // TODO: Camera selection is now done by a camera selector, instead of per-use case
     private fun bindCameraUseCases() {
 
         // Get screen metrics used to setup camera for full screen resolution
@@ -313,8 +322,7 @@ class CameraFragment: Fragment() {
                 // We log image analysis results here --
                 // you should do something useful instead!
                 //val fps = (analyzer as LuminosityAnalyzer).framesPerSecond
-                // Log.d(LOG_TAG, "Average luminosity: $luma. " +
-                //         "Frames per second: ${"%.01f".format(fps)}")
+                // Log.d(LOG_TAG, "Frames per second: ${"%.01f".format(fps)}")
                 Log.d(LOG_TAG, "Average luminosity: $luma");
             })
 
@@ -330,7 +338,7 @@ class CameraFragment: Fragment() {
             // Must re-bind, because it gets called several times.
             cameraProvider.unbindAll()
             try {
-                // Note: A variable number of use-cases can be passed here.
+                // A variable number of use-cases can be passed here.
                 cameraProvider.bindToLifecycle(this as LifecycleOwner, cameraSelector, imageCapture, imageAnalysis, preview)
             } catch(e: Exception) {
                 Log.e(LOG_TAG, "" + e.message);
@@ -357,7 +365,6 @@ class CameraFragment: Fragment() {
         }
         return AspectRatio.RATIO_16_9
     }
-
 
     /** Method used to re-draw the camera UI controls, called every time configuration changes */
     private fun updateCameraUi() {
@@ -410,14 +417,13 @@ class CameraFragment: Fragment() {
                 CameraSelector.LENS_FACING_FRONT
             }
 
-            // Unbind all use cases
+            // Rebind camera use cases
             cameraProvider.unbindAll()
             bindCameraUseCases()
         }
 
         // Listener for button used to view the most recent photo
         controls.findViewById<AppCompatImageButton>(R.id.photo_view_button).setOnClickListener {
-
             // Only navigate when the gallery has photos
             if(outputDirectory.listFiles()?.size!! > 0) {
                 try {
@@ -426,8 +432,6 @@ class CameraFragment: Fragment() {
                 } catch(e: IllegalArgumentException) {
                     Log.e(LOG_TAG, "" + e.message)
                 }
-            } else {
-                Log.w(LOG_TAG, "The media gallery has no content")
             }
         }
     }

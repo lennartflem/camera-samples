@@ -28,7 +28,6 @@ import java.io.File
 import android.content.Intent
 import android.media.MediaScannerConnection
 import android.os.Build
-import android.util.Log
 import android.webkit.MimeTypeMap
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.FileProvider
@@ -74,7 +73,6 @@ class GalleryFragment internal constructor(): Fragment() {
         mediaList = rootDirectory.listFiles { file ->
             EXTENSION_WHITELIST.contains(file.extension.toUpperCase())
         }?.sortedDescending()?.toMutableList() ?: mutableListOf()
-
     }
 
     override fun onCreateView(
