@@ -206,7 +206,7 @@ class CameraFragment: Fragment() {
             // level >= 24, so if you only target 24+ you can remove this statement
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
                 requireActivity().sendBroadcast(
-                    Intent(android.hardware.Camera.ACTION_NEW_PICTURE, Uri.fromFile(photoFile))
+                    Intent("android.hardware.action.NEW_PICTURE", Uri.fromFile(photoFile))
                 )
             }
 
@@ -410,7 +410,6 @@ class CameraFragment: Fragment() {
             }
 
             // Rebind camera use cases
-            cameraProvider.unbindAll()
             bindCameraUseCases()
         }
 
