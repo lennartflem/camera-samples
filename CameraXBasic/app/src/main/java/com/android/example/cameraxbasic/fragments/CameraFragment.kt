@@ -79,16 +79,17 @@ class CameraFragment: Fragment() {
     private lateinit var container: ConstraintLayout
     private lateinit var viewFinder: PreviewView
     private lateinit var outputDirectory: File
+    private lateinit var mainExecutor: Executor
     private lateinit var broadcastManager: LocalBroadcastManager
     private lateinit var cameraProviderFuture: ListenableFuture<ProcessCameraProvider>
     private lateinit var cameraProvider: ProcessCameraProvider
     private lateinit var cameraSelector: CameraSelector
-    private lateinit var mainExecutor: Executor
 
-    private var displayId = -1
     private var preview: Preview? = null
     private var imageCapture: ImageCapture? = null
     private var imageAnalyzer: ImageAnalysis? = null
+    private var lensFacing: Int = CameraSelector.LENS_FACING_BACK
+    private var displayId = -1
 
     /** Volume down button receiver used to trigger shutter */
     private val volumeDownReceiver = object : BroadcastReceiver() {
@@ -116,13 +117,24 @@ class CameraFragment: Fragment() {
         override fun onDisplayRemoved(displayId: Int) = Unit
         override fun onDisplayChanged(displayId: Int) = view?.let { view ->
             if (displayId == this@CameraFragment.displayId) {
+
                 Log.d(LOG_TAG, "Rotation changed: ${view.display.rotation}")
 
-                // TODO: this needs fixing.
+                // Initialize UseCase
                 // preview?.setTargetRotation(view.display.rotation)
+                preview = Preview.Builder()
+                        // We request aspect ratio but no resolution to let CameraX optimize our use cases
+                        // .setTargetAspectRatio(screenAspectRatio)
+                        // Set initial target rotation, we will have to call this again if rotation changes
+                        // during the lifecycle of this use case
+                        .setTargetRotation(view.display.rotation)
+                        .build()
 
-                imageCapture?.setTargetRotation(view.display.rotation)
-                imageAnalyzer?.setTargetRotation(view.display.rotation)
+                preview?.setPreviewSurfaceProvider(viewFinder.previewSurfaceProvider)
+
+                // TODO: this needs fixing.
+                // imageCapture?.setTargetRotation(view.display.rotation)
+                // imageAnalyzer?.setTargetRotation(view.display.rotation)
             }
         } ?: Unit
     }
@@ -151,15 +163,14 @@ class CameraFragment: Fragment() {
         broadcastManager.unregisterReceiver(volumeDownReceiver)
         displayManager.unregisterDisplayListener(displayListener)
 
-        // experimental
         cameraProvider.unbindAll()
     }
 
     override fun onCreateView(
-            inflater: LayoutInflater,
-            container: ViewGroup?,
-            savedInstanceState: Bundle?): View? =
-            inflater.inflate(R.layout.fragment_camera, container, false)
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View? = inflater.inflate(R.layout.fragment_camera, container,false)
 
     private fun setGalleryThumbnail(file: File) {
 
@@ -280,72 +291,65 @@ class CameraFragment: Fragment() {
         val screenAspectRatio = aspectRatio(metrics.widthPixels, metrics.heightPixels)
         Log.d(LOG_TAG, "Preview aspect ratio: $screenAspectRatio")
 
-        /*
-        // Set up the view finder use case to display camera preview
-        val viewFinderConfig = PreviewConfig.Builder().apply {
-            setLensFacing(lensFacing)
-            // We request aspect ratio but no resolution to let CameraX optimize our use cases
-            setTargetAspectRatio(screenAspectRatio)
-            // Set initial target rotation, we will have to call this again if rotation changes
-            // during the lifecycle of this use case
-            setTargetRotation(viewFinder.display.rotation)
-        }.build()
-
-        // Use the auto-fit preview builder to automatically handle size and orientation changes
-        preview = AutoFitPreviewBuilder.build(viewFinderConfig, viewFinder)
-        */
-
-        /*
-        // Set up the capture use case to allow users to take photos
-        val imageCaptureConfig = ImageCaptureConfig.Builder().apply {
-            setLensFacing(lensFacing)
-            setCaptureMode(CaptureMode.MIN_LATENCY)
-            // We request aspect ratio but no resolution to match preview config but letting
-            // CameraX optimize for whatever specific resolution best fits requested capture mode
-            setTargetAspectRatio(screenAspectRatio)
-            // Set initial target rotation, we will have to call this again if rotation changes
-            // during the lifecycle of this use case
-            setTargetRotation(viewFinder.display.rotation)
-        }.build()
-
-        imageCapture = ImageCapture(imageCaptureConfig)
-
-        // Setup image analysis pipeline that computes average pixel luminance in real time
-        val analyzerConfig = ImageAnalysisConfig.Builder().apply {
-            setLensFacing(lensFacing)
-            // In our analysis, we care more about the latest image than analyzing *every* image
-            setImageReaderMode(ImageAnalysis.ImageReaderMode.ACQUIRE_LATEST_IMAGE)
-            // Set initial target rotation, we will have to call this again if rotation changes
-            // during the lifecycle of this use case
-            setTargetRotation(viewFinder.display.rotation)
-        }.build()
-
-        imageAnalyzer = ImageAnalysis(analyzerConfig).apply {
-            setAnalyzer(mainExecutor,
-                    LuminosityAnalyzer { luma ->
-                        // Values returned from our analyzer are passed to the attached listener
-                        // We log image analysis results here --
-                        // you should do something useful instead!
-                        val fps = (analyzer as LuminosityAnalyzer).framesPerSecond
-                        Log.d(LOG_TAG, "Average luminosity: $luma. " +
-                                "Frames per second: ${"%.01f".format(fps)}")
-                    })
-        }
-        */
-
         // Bind the cameraProvider to the LifeCycleOwner
-        cameraSelector = CameraSelector.Builder().requireLensFacing(CameraSelector.LENS_FACING_BACK).build()
+        cameraSelector = CameraSelector.Builder().requireLensFacing(lensFacing).build()
         cameraProviderFuture = ProcessCameraProvider.getInstance(this.requireContext())
         cameraProviderFuture.addListener(Runnable {
 
             cameraProvider = cameraProviderFuture.get()
 
             // Initialize UseCase
-            preview = Preview.Builder().setTargetAspectRatio(AspectRatio.RATIO_16_9).build()
+            preview = Preview.Builder()
+                // We request aspect ratio but no resolution to let CameraX optimize our use cases
+                .setTargetAspectRatio(screenAspectRatio)
+                // Set initial target rotation, we will have to call this again if rotation changes
+                // during the lifecycle of this use case
+                .setTargetRotation(viewFinder.display.rotation)
+                .build()
+
             preview?.setPreviewSurfaceProvider(viewFinder.previewSurfaceProvider)
 
-            // TODO: imageCapture & imageAnalyzer need to be defined
-            // imageCapture =
+            // TODO: imageCapture needs to be defined.
+            /*
+            // Set up the capture use case to allow users to take photos
+            val imageCaptureConfig = ImageCaptureConfig.Builder().apply {
+                setLensFacing(lensFacing)
+                setCaptureMode(CaptureMode.MIN_LATENCY)
+                // We request aspect ratio but no resolution to match preview config but letting
+                // CameraX optimize for whatever specific resolution best fits requested capture mode
+                setTargetAspectRatio(screenAspectRatio)
+                // Set initial target rotation, we will have to call this again if rotation changes
+                // during the lifecycle of this use case
+                setTargetRotation(viewFinder.display.rotation)
+            }.build()
+
+            imageCapture = ImageCapture(imageCaptureConfig)
+            */
+
+            // TODO: imageAnalyzer needs to be defined.
+            /*
+            // Setup image analysis pipeline that computes average pixel luminance in real time
+            val analyzerConfig = ImageAnalysisConfig.Builder().apply {
+                setLensFacing(lensFacing)
+                // In our analysis, we care more about the latest image than analyzing *every* image
+                setImageReaderMode(ImageAnalysis.ImageReaderMode.ACQUIRE_LATEST_IMAGE)
+                // Set initial target rotation, we will have to call this again if rotation changes
+                // during the lifecycle of this use case
+                setTargetRotation(viewFinder.display.rotation)
+            }.build()
+
+            imageAnalyzer = ImageAnalysis(analyzerConfig).apply {
+                setAnalyzer(mainExecutor,
+                        LuminosityAnalyzer { luma ->
+                            // Values returned from our analyzer are passed to the attached listener
+                            // We log image analysis results here --
+                            // you should do something useful instead!
+                            val fps = (analyzer as LuminosityAnalyzer).framesPerSecond
+                            Log.d(LOG_TAG, "Average luminosity: $luma. " +
+                                    "Frames per second: ${"%.01f".format(fps)}")
+                        })
+            }
+            */
 
             // Apply declared configs to CameraX using the same lifecycle owner
             if(imageCapture != null && imageAnalyzer != null) {
@@ -365,7 +369,7 @@ class CameraFragment: Fragment() {
         preview?.setPreviewSurfaceProvider(viewFinder.getPreviewSurfaceProvider())
 
         cameraSelector = CameraSelector.Builder()
-            .requireLensFacing(CameraSelector.LENS_FACING_BACK)
+            .requireLensFacing(lensFacing)
             .build()
 
         cameraProvider.bindToLifecycle(this as LifecycleOwner, cameraSelector, preview)
@@ -391,7 +395,6 @@ class CameraFragment: Fragment() {
     }
 
     /** Method used to re-draw the camera UI controls, called every time configuration changes */
-    @SuppressLint("RestrictedApi")
     private fun updateCameraUi() {
 
         // Remove previous UI if any
@@ -400,10 +403,11 @@ class CameraFragment: Fragment() {
         }
 
         // Inflate a new view containing all UI for controlling the camera
-        val controls = View.inflate(requireContext(), R.layout.camera_ui_container, container)
+        val controls = View.inflate(this.requireContext(), R.layout.camera_ui_container, container)
 
         // Listener for button used to capture photo
         controls.findViewById<ImageButton>(R.id.camera_capture_button).setOnClickListener {
+
             // Get a stable reference of the modifiable image capture use case
             imageCapture?.let { imageCapture ->
 
@@ -414,8 +418,7 @@ class CameraFragment: Fragment() {
                 val metadata = Metadata().apply {
 
                     // Mirror image when using the front camera
-                    // TODO: this requires fixing.
-                    // isReversedHorizontal = lensFacing == CameraX.LensFacing.FRONT
+                    isReversedHorizontal = lensFacing == CameraSelector.LENS_FACING_FRONT
                 }
 
                 // Setup image capture listener which is triggered after photo has been taken
@@ -427,8 +430,7 @@ class CameraFragment: Fragment() {
                     // Display flash animation to indicate that photo was captured
                     container.postDelayed({
                         container.foreground = ColorDrawable(Color.WHITE)
-                        container.postDelayed(
-                                { container.foreground = null }, ANIMATION_FAST_MILLIS)
+                        container.postDelayed({container.foreground = null}, ANIMATION_FAST_MILLIS)
                     }, ANIMATION_SLOW_MILLIS)
                 }
             }
@@ -437,32 +439,22 @@ class CameraFragment: Fragment() {
         // Listener for button used to switch cameras
         controls.findViewById<ImageButton>(R.id.camera_switch_button).setOnClickListener {
 
-            // TODO: this requires fixing.
-            /*
-            lensFacing = if (CameraX.LensFacing.FRONT == lensFacing) {
-                CameraX.LensFacing.BACK
+            lensFacing = if (CameraSelector.LENS_FACING_FRONT == lensFacing) {
+                CameraSelector.LENS_FACING_BACK
             } else {
-                CameraX.LensFacing.FRONT
+                CameraSelector.LENS_FACING_FRONT
             }
 
-            try {
+            // Unbind all use cases
+            cameraProvider.unbindAll()
 
-                // Only bind use cases if we can query a camera with this orientation
-                CameraX.getCameraWithLensFacing(lensFacing)
-
-                // Unbind all use cases and bind them again with the new lens facing configuration
-                CameraX.unbindAll()
-                bindCameraUseCases()
-
-            } catch (exc: Exception) {
-                // Do nothing
-            }
-            */
+            // And bind them again with the new lens facing configuration
+            bindCameraUseCases()
         }
 
         // Listener for button used to view last photo
         controls.findViewById<ImageButton>(R.id.photo_view_button).setOnClickListener {
-            Navigation.findNavController(requireActivity(), R.id.fragment_container).navigate(
+            Navigation.findNavController(this.requireActivity(), R.id.fragment_container).navigate(
                     CameraFragmentDirections.actionCameraToGallery(outputDirectory.absolutePath))
         }
     }
