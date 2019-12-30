@@ -418,19 +418,16 @@ class CameraFragment: Fragment() {
         // Listener for button used to view the most recent photo
         controls.findViewById<AppCompatImageButton>(R.id.photo_view_button).setOnClickListener {
 
-            // TODO: there might be a more elegant way to know if the gallery has content
-            outputDirectory.listFiles { file ->
-                EXTENSION_WHITELIST.contains(file.extension.toUpperCase(Locale.getDefault()))
-            }?.max()?.let {
-
-                // Only navigate when the gallery has photos
-                val dest = CameraFragmentDirections.actionCameraToGallery(outputDirectory.absolutePath)
+            // Only navigate when the gallery has photos
+            if(outputDirectory.listFiles()?.size!! > 0) {
                 try {
-                    Log.d("NavController", "navigating to " + dest.rootDirectory)
+                    val dest = CameraFragmentDirections.actionCameraToGallery(outputDirectory.absolutePath)
                     this.findNavController().navigate(dest)
                 } catch(e: IllegalArgumentException) {
                     Log.e(LOG_TAG, "" + e.message)
                 }
+            } else {
+                Log.w(LOG_TAG, "The media gallery has no content")
             }
         }
     }
