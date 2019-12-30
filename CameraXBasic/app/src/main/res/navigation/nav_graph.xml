@@ -37,7 +37,7 @@
     <fragment
         android:id="@+id/camera_fragment"
         android:name="com.android.example.cameraxbasic.fragments.CameraFragment"
-        tools:layout="@layout/fragment_camera"
+        tools:layout="@layout/camera_ui_container"
         android:label="CameraFragment" >
 
         <action
