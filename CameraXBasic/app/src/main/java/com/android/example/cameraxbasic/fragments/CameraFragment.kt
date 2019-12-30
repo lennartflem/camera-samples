@@ -152,7 +152,6 @@ class CameraFragment: Fragment() {
     }
 
     override fun onDestroyView() {
-
         super.onDestroyView()
 
         // Unregister the broadcast receivers and listeners
@@ -190,10 +189,10 @@ class CameraFragment: Fragment() {
 
         override fun onError(imageCaptureError: Int, message: String, cause: Throwable?) {
             Log.e(LOG_TAG, "Photo capture failed: $message")
-            cause?.printStackTrace()
         }
 
         override fun onImageSaved(photoFile: File) {
+
             Log.d(LOG_TAG, "Photo capture succeeded: ${photoFile.absolutePath}")
 
             // We can only change the foreground Drawable using API level 23+ API
@@ -271,13 +270,6 @@ class CameraFragment: Fragment() {
      */
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
-        val orientation : Int = getResources().getConfiguration().orientation
-        if(orientation == (Configuration.ORIENTATION_LANDSCAPE)){
-            Log.i(LOG_TAG, "landscape")
-        } else if (orientation == (Configuration.ORIENTATION_PORTRAIT)){
-            Log.i(LOG_TAG, "portrait")
-        }
-
         updateCameraUi()
     }
 
@@ -337,9 +329,12 @@ class CameraFragment: Fragment() {
 
             // Must re-bind, because it gets called several times.
             cameraProvider.unbindAll()
-
-            // A variable number of use-cases can be passed here.
-            cameraProvider.bindToLifecycle(this as LifecycleOwner, cameraSelector, imageCapture, imageAnalysis, preview)
+            try {
+                // A variable number of use-cases can be passed here.
+                cameraProvider.bindToLifecycle(this as LifecycleOwner, cameraSelector, imageCapture, imageAnalysis, preview)
+            } catch(e: Exception) {
+                Log.e(LOG_TAG, "" + e.message);
+            }
 
         }, ContextCompat.getMainExecutor(this.requireContext()))
     }
@@ -421,10 +416,16 @@ class CameraFragment: Fragment() {
 
         // Listener for button used to view the most recent photo
         controls.findViewById<AppCompatImageButton>(R.id.photo_view_button).setOnClickListener {
+
+            var controller = findNavController()
+            val dest = CameraFragmentDirections.actionCameraToGallery(outputDirectory.absolutePath)
+
             // Only navigate when the gallery has photos
             if(outputDirectory.listFiles()?.size!! > 0) {
-                val dest = CameraFragmentDirections.actionCameraToGallery(outputDirectory.absolutePath)
-                this.findNavController().navigate(dest)
+                try {controller.navigate(dest)}
+                catch(e: IllegalArgumentException) {
+                    Log.e(LOG_TAG, "" + e.message)
+                }
             }
         }
     }
