@@ -337,12 +337,9 @@ class CameraFragment: Fragment() {
 
             // Must re-bind, because it gets called several times.
             cameraProvider.unbindAll()
-            try {
-                // A variable number of use-cases can be passed here.
-                cameraProvider.bindToLifecycle(this as LifecycleOwner, cameraSelector, imageCapture, imageAnalysis, preview)
-            } catch(e: Exception) {
-                Log.e(LOG_TAG, "" + e.message);
-            }
+
+            // A variable number of use-cases can be passed here.
+            cameraProvider.bindToLifecycle(this as LifecycleOwner, cameraSelector, imageCapture, imageAnalysis, preview)
 
         }, ContextCompat.getMainExecutor(this.requireContext()))
     }
