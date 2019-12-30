@@ -426,12 +426,8 @@ class CameraFragment: Fragment() {
         controls.findViewById<AppCompatImageButton>(R.id.photo_view_button).setOnClickListener {
             // Only navigate when the gallery has photos
             if(outputDirectory.listFiles()?.size!! > 0) {
-                try {
-                    val dest = CameraFragmentDirections.actionCameraToGallery(outputDirectory.absolutePath)
-                    this.findNavController().navigate(dest)
-                } catch(e: IllegalArgumentException) {
-                    Log.e(LOG_TAG, "" + e.message)
-                }
+                val dest = CameraFragmentDirections.actionCameraToGallery(outputDirectory.absolutePath)
+                this.findNavController().navigate(dest)
             }
         }
     }
