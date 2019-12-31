@@ -22,7 +22,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.rule.ActivityTestRule
 import androidx.test.rule.GrantPermissionRule
-import org.junit.Assert.assertEquals
+import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -38,8 +38,14 @@ class MainInstrumentedTest {
 
     @Test
     fun useAppContext() {
-        // Context of the app under test
         val context = ApplicationProvider.getApplicationContext() as Context
         assertEquals("com.android.example.cameraxbasic", context.packageName)
+    }
+
+    @Test
+    fun getOutputDirectory() {
+        val activity = activityRule.activity as MainActivity
+        val outputDirectory = MainActivity.getOutputDirectory(activity).absolutePath.toString()
+        assertNotNull(outputDirectory)
     }
 }
