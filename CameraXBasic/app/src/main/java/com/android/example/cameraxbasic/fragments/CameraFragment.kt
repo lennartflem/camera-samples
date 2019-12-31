@@ -31,7 +31,10 @@ import android.os.Build
 import android.os.Bundle
 import android.util.DisplayMetrics
 import android.util.Log
-import android.view.*
+import android.view.KeyEvent
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
 import android.webkit.MimeTypeMap
 import android.widget.ImageButton
 import androidx.appcompat.widget.AppCompatImageButton
@@ -62,7 +65,6 @@ import com.google.common.util.concurrent.ListenableFuture
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.io.File
-import java.lang.Exception
 import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.concurrent.Executor
@@ -140,11 +142,13 @@ class CameraFragment: Fragment() {
         mainExecutor = ContextCompat.getMainExecutor(requireContext())
     }
 
+    /**
+     * Make sure that all permissions are still present, since user
+     * could have removed them while the app was in paused state.
+     */
     override fun onResume() {
         super.onResume()
-        // Make sure that all permissions are still present, since user could have removed them
-        // while the app was in paused state
-        if (!PermissionsFragment.hasPermissions(requireContext())) {
+        if (! PermissionsFragment.hasPermissions(requireContext())) {
             Navigation.findNavController(requireActivity(), R.id.fragment_container).navigate(
                 CameraFragmentDirections.actionCameraToPermissions()
             )
@@ -160,9 +164,9 @@ class CameraFragment: Fragment() {
     }
 
     override fun onCreateView(
-        inflater: LayoutInflater,
-        container: ViewGroup?,
-        savedInstanceState: Bundle?
+            inflater: LayoutInflater,
+            container: ViewGroup?,
+            savedInstanceState: Bundle?
     ): View? = inflater.inflate(R.layout.fragment_camera, container,false)
 
     private fun setGalleryThumbnail(file: File) {
@@ -220,10 +224,11 @@ class CameraFragment: Fragment() {
         }
     }
 
-    @SuppressLint("MissingPermission", "DefaultLocale")
+    @SuppressLint("MissingPermission")
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
 
         super.onViewCreated(view, savedInstanceState)
+
         container = view as ConstraintLayout
         viewFinder = container.findViewById(R.id.view_finder)
         broadcastManager = LocalBroadcastManager.getInstance(view.context)
@@ -250,7 +255,9 @@ class CameraFragment: Fragment() {
             bindCameraUseCases()
 
             // In the background, load latest photo taken (if any) for gallery thumbnail
+            // TODO: this might cause a race condition & the navigation IllegalArgumentException
             lifecycleScope.launch(Dispatchers.IO) {
+
                 outputDirectory.listFiles { file ->
                     EXTENSION_WHITELIST.contains(file.extension.toUpperCase(Locale.getDefault()))
                 }?.max()?.let {
@@ -285,7 +292,7 @@ class CameraFragment: Fragment() {
 
         // Bind the cameraProvider to the LifeCycleOwner
         cameraSelector = CameraSelector.Builder().requireLensFacing(lensFacing).build()
-        cameraProviderFuture = ProcessCameraProvider.getInstance(this.requireContext())
+        cameraProviderFuture = ProcessCameraProvider.getInstance(requireContext())
 
         cameraProviderFuture.addListener(Runnable {
 
@@ -320,15 +327,16 @@ class CameraFragment: Fragment() {
 
             // Preview
             preview = Preview.Builder()
-                    .setTargetName("Preview")
-                    .setTargetAspectRatio(screenAspectRatio)
-                    .setTargetRotation(viewFinder.display.rotation)
-                    .build()
+                .setTargetName("Preview")
+                .setTargetAspectRatio(screenAspectRatio)
+                .setTargetRotation(viewFinder.display.rotation)
+                .build()
 
             preview?.setPreviewSurfaceProvider(viewFinder.previewSurfaceProvider)
 
             // Must re-bind, because it gets called several times.
             cameraProvider.unbindAll()
+
             try {
                 // A variable number of use-cases can be passed here.
                 cameraProvider.bindToLifecycle(this as LifecycleOwner, cameraSelector, imageCapture, imageAnalysis, preview)
@@ -336,7 +344,7 @@ class CameraFragment: Fragment() {
                 Log.e(LOG_TAG, "" + e.message);
             }
 
-        }, ContextCompat.getMainExecutor(this.requireContext()))
+        }, mainExecutor)
     }
 
     /**
@@ -367,7 +375,7 @@ class CameraFragment: Fragment() {
         }
 
         // Inflate a new view containing all UI for controlling the camera
-        val controls = View.inflate(this.requireContext(), R.layout.camera_ui_container, container)
+        val controls = View.inflate(requireContext(), R.layout.camera_ui_container, container)
 
         // Listener for button used to capture photo
         controls.findViewById<AppCompatImageButton>(R.id.camera_capture_button).setOnClickListener {
@@ -402,14 +410,12 @@ class CameraFragment: Fragment() {
 
         // Listener for button used to switch cameras
         controls.findViewById<AppCompatImageButton>(R.id.camera_switch_button).setOnClickListener {
-
             lensFacing = if (CameraSelector.LENS_FACING_FRONT == lensFacing) {
                 CameraSelector.LENS_FACING_BACK
             } else {
                 CameraSelector.LENS_FACING_FRONT
             }
-
-            // Rebind camera use cases
+            // Rebind use cases
             bindCameraUseCases()
         }
 
@@ -421,8 +427,9 @@ class CameraFragment: Fragment() {
 
             // Only navigate when the gallery has photos
             if(outputDirectory.listFiles()?.size!! > 0) {
-                try {controller.navigate(dest)}
-                catch(e: IllegalArgumentException) {
+                try {
+                    controller.navigate(dest)
+                } catch(e: IllegalArgumentException) {
                     Log.e(LOG_TAG, "" + e.message)
                 }
             }
