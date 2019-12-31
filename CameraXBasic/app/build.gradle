@@ -87,21 +87,22 @@ dependencies {
     def camerax_version = "1.0.0-alpha08"
     implementation "androidx.camera:camera-core:$camerax_version"
 
-    // If you want to use Camera2 extensions
+    // CameraX Camera2 extensions
     implementation "androidx.camera:camera-camera2:$camerax_version"
 
-    // If you want to use the CameraX View class
+    // CameraX Lifecycle library
+    implementation "androidx.camera:camera-lifecycle:1.0.0-alpha02"
+
+    // CameraX View class
     implementation "androidx.camera:camera-view:1.0.0-alpha05"
 
-    // If you want to use the CameraX Extensions library
-    implementation "androidx.camera:camera-extensions:1.0.0-alpha05"
-
-    // If you want to use the CameraX Lifecycle library
-    implementation "androidx.camera:camera-lifecycle:1.0.0-alpha02"
+    // CameraX Extensions library
+    // implementation "androidx.camera:camera-extensions:1.0.0-alpha05"
 
     // Glide
     implementation "com.github.bumptech.glide:glide:4.10.0"
     kapt "com.github.bumptech.glide:compiler:4.10.0"
+    kapt "com.google.auto.service:auto-service:1.0-rc4"
 
     // Unit testing
     testImplementation "androidx.test.ext:junit:1.1.1"
@@ -115,6 +116,4 @@ dependencies {
     androidTestImplementation "androidx.test:rules:1.2.0"
     androidTestImplementation "androidx.test:runner:1.2.0"
     androidTestImplementation "androidx.test.espresso:espresso-core:3.2.0"
-
-    testAnnotationProcessor "com.google.auto.service:auto-service:1.0-rc4"
 }
