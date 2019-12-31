@@ -31,10 +31,7 @@ import android.os.Build
 import android.os.Bundle
 import android.util.DisplayMetrics
 import android.util.Log
-import android.view.KeyEvent
-import android.view.LayoutInflater
-import android.view.View
-import android.view.ViewGroup
+import android.view.*
 import android.webkit.MimeTypeMap
 import android.widget.ImageButton
 import androidx.appcompat.widget.AppCompatImageButton
@@ -55,10 +52,7 @@ import com.android.example.cameraxbasic.KEY_EVENT_ACTION
 import com.android.example.cameraxbasic.KEY_EVENT_EXTRA
 import com.android.example.cameraxbasic.MainActivity
 import com.android.example.cameraxbasic.R
-import com.android.example.cameraxbasic.utils.ANIMATION_FAST_MILLIS
-import com.android.example.cameraxbasic.utils.ANIMATION_SLOW_MILLIS
-import com.android.example.cameraxbasic.utils.LuminosityAnalyzer
-import com.android.example.cameraxbasic.utils.simulateClick
+import com.android.example.cameraxbasic.utils.*
 import com.bumptech.glide.Glide
 import com.bumptech.glide.request.RequestOptions
 import com.google.common.util.concurrent.ListenableFuture
@@ -66,7 +60,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.io.File
 import java.text.SimpleDateFormat
-import java.util.Locale
+import java.util.*
 import java.util.concurrent.Executor
 import kotlin.math.abs
 import kotlin.math.max
@@ -94,8 +88,8 @@ class CameraFragment: Fragment() {
     private lateinit var displayManager: DisplayManager
 
     private var preview: Preview? = null
-    private var imageCapture: ImageCapture? = null
-    private var imageAnalysis: ImageAnalysis? = null
+    private var capture: ImageCapture? = null
+    private var analysis: ImageAnalysis? = null
     private var lensFacing: Int = CameraSelector.LENS_FACING_BACK
     private var displayId = -1
 
@@ -122,10 +116,12 @@ class CameraFragment: Fragment() {
         override fun onDisplayRemoved(displayId: Int) = Unit
         override fun onDisplayChanged(displayId: Int) = view?.let { view ->
             if (displayId == this@CameraFragment.displayId) {
+
                 Log.d(LOG_TAG, "Rotation changed: ${view.display.rotation}")
                 // preview?.setTargetRotation(view.display.rotation)
-                imageCapture?.setTargetRotation(view.display.rotation)
-                imageAnalysis?.setTargetRotation(view.display.rotation)
+                capture?.setTargetRotation(view.display.rotation)
+                analysis?.setTargetRotation(view.display.rotation)
+
             }
         } ?: Unit
     }
@@ -139,14 +135,14 @@ class CameraFragment: Fragment() {
         // Determine the output directory
         outputDirectory = MainActivity.getOutputDirectory(requireContext())
 
+        // Every time the orientation of device changes, recompute layout
+        displayManager = requireContext().getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
+        displayManager.registerDisplayListener(displayListener, null)
+
         // Set up the intent filter that will receive events from our main activity
         val filter = IntentFilter().apply { addAction(KEY_EVENT_ACTION) }
         broadcastManager = LocalBroadcastManager.getInstance(requireContext())
         broadcastManager.registerReceiver(volumeDownReceiver, filter)
-
-        // Every time the orientation of device changes, recompute layout
-        displayManager = requireContext().getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
-        displayManager.registerDisplayListener(displayListener, null)
     }
 
     /**
@@ -244,14 +240,15 @@ class CameraFragment: Fragment() {
             // Keep track of the display in which this view is attached
             displayId = viewFinder.display.displayId
 
-            // Build UI controls and bind all camera use cases
+            // Build UI controls
             updateCameraUi()
+
+            // Bind use cases
             bindCameraUseCases()
 
             // In the background, load latest photo taken (if any) for gallery thumbnail
             // TODO: this might cause a race condition & the navigation IllegalArgumentException
             lifecycleScope.launch(Dispatchers.IO) {
-
                 outputDirectory.listFiles { file ->
                     EXTENSION_WHITELIST.contains(file.extension.toUpperCase(Locale.getDefault()))
                 }?.max()?.let {
@@ -284,6 +281,8 @@ class CameraFragment: Fragment() {
         val screenAspectRatio = aspectRatio(metrics.widthPixels, metrics.heightPixels)
         Log.d(LOG_TAG, "Preview aspect ratio: $screenAspectRatio")
 
+        val rotation = viewFinder.display.rotation
+
         // Bind the cameraProvider to the LifeCycleOwner
         cameraSelector = CameraSelector.Builder().requireLensFacing(lensFacing).build()
         cameraProviderFuture = ProcessCameraProvider.getInstance(requireContext())
@@ -293,24 +292,34 @@ class CameraFragment: Fragment() {
             // CameraProvider
             cameraProvider = cameraProviderFuture.get()
 
+            // Preview
+            preview = Preview.Builder()
+                    .setTargetName("view_finder")
+                    // .setTargetAspectRatio(screenAspectRatio)
+                    // .setTargetRotation(rotation)
+                    .build()
+
+            // Default PreviewSurfaceProvider
+            preview?.setPreviewSurfaceProvider(viewFinder.previewSurfaceProvider)
+
             // ImageCapture
-            imageCapture = ImageCapture.Builder()
+            capture = ImageCapture.Builder()
                 .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
                 // We request aspect ratio but no resolution to match preview config but letting
                 // CameraX optimize for whatever specific resolution best fits requested capture mode
                 .setTargetAspectRatio(screenAspectRatio)
                 // Set initial target rotation, we will have to call this again if rotation changes
                 // during the lifecycle of this use case
-                .setTargetRotation(viewFinder.display.rotation)
+                .setTargetRotation(rotation)
                 .build()
 
             // ImageAnalysis
-            imageAnalysis = ImageAnalysis.Builder()
+            analysis = ImageAnalysis.Builder()
                 .setTargetAspectRatio(screenAspectRatio)
-                .setTargetRotation(viewFinder.display.rotation)
+                .setTargetRotation(rotation)
                 .build()
 
-            imageAnalysis?.setAnalyzer(mainExecutor, LuminosityAnalyzer { luma ->
+            analysis?.setAnalyzer(mainExecutor, LuminosityAnalyzer { luma ->
                 // Values returned from our analyzer are passed to the attached listener
                 // We log image analysis results here --
                 // you should do something useful instead!
@@ -319,23 +328,17 @@ class CameraFragment: Fragment() {
                 Log.d(LOG_TAG, "Average luminosity: $luma")
             })
 
-            // Preview
-            preview = Preview.Builder()
-                .setTargetName("Preview")
-                .setTargetAspectRatio(screenAspectRatio)
-                .setTargetRotation(viewFinder.display.rotation)
-                .build()
-
-            preview?.setPreviewSurfaceProvider(viewFinder.previewSurfaceProvider)
-
-            // Must re-bind, because it gets called several times.
-            cameraProvider.unbindAll()
-
             try {
+
+                // Must unbind use cases before rebinding them.
+                cameraProvider.unbindAll()
+
                 // A variable number of use-cases can be passed here.
-                cameraProvider.bindToLifecycle(
-                    this as LifecycleOwner, cameraSelector, imageCapture, imageAnalysis, preview
+                val camera: Camera = cameraProvider.bindToLifecycle(
+                    this as LifecycleOwner, cameraSelector, preview, capture, analysis
                 )
+                // camera.cameraControl.setZoomRatio(5.0f)
+
             } catch(e: Exception) {
                 Log.e(LOG_TAG, "" + e.message)
             }
@@ -362,7 +365,9 @@ class CameraFragment: Fragment() {
         return AspectRatio.RATIO_16_9
     }
 
-    /** Method used to re-draw the camera UI controls, called every time configuration changes */
+    /**
+     * Method used to re-draw the camera UI controls, called every time configuration changes.
+     */
     private fun updateCameraUi() {
 
         // Remove previous UI if any
@@ -377,7 +382,7 @@ class CameraFragment: Fragment() {
         controls.findViewById<AppCompatImageButton>(R.id.camera_capture_button).setOnClickListener {
 
             // Get a stable reference of the modifiable image capture use case
-            imageCapture?.let { imageCapture ->
+            capture?.let { imageCapture ->
 
                 // Create output file to hold the image
                 val photoFile = createFile(outputDirectory, FILENAME, PHOTO_EXTENSION)
@@ -411,7 +416,7 @@ class CameraFragment: Fragment() {
             } else {
                 CameraSelector.LENS_FACING_FRONT
             }
-            // Rebind use cases
+            // Bind use cases
             bindCameraUseCases()
         }
 
@@ -439,6 +444,8 @@ class CameraFragment: Fragment() {
         private const val PHOTO_EXTENSION = ".jpg"
         private const val RATIO_4_3_VALUE = 4.0 / 3.0
         private const val RATIO_16_9_VALUE = 16.0 / 9.0
+
+        private const val CUSTOM_PREVIEW_SURFACE_PROVIDER = false
 
         /** Helper function used to create a timestamped file */
         private fun createFile(baseFolder: File, format: String, extension: String) =
