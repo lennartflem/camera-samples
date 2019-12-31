@@ -335,7 +335,9 @@ class CameraFragment: Fragment() {
 
             try {
                 // A variable number of use-cases can be passed here.
-                cameraProvider.bindToLifecycle(this as LifecycleOwner, cameraSelector, imageCapture, imageAnalysis, preview)
+                cameraProvider.bindToLifecycle(
+                    this as LifecycleOwner, cameraSelector, imageCapture, imageAnalysis, preview
+                )
             } catch(e: Exception) {
                 Log.e(LOG_TAG, "" + e.message);
             }
