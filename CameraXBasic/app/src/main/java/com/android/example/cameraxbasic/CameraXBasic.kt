@@ -5,7 +5,7 @@ import androidx.camera.camera2.Camera2Config
 import androidx.camera.core.CameraXConfig
 
 /** Implements CameraXConfig.Provider */
-class CameraXApplication: Application(), CameraXConfig.Provider {
+class CameraXBasic: Application(), CameraXConfig.Provider {
 
     /** @returns Camera2 default configuration */
     override fun getCameraXConfig(): CameraXConfig {
