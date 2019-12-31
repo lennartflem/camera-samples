@@ -31,8 +31,7 @@ import org.junit.runner.RunWith
 class MainInstrumentedTest {
 
     @get:Rule
-    val permissionRule = GrantPermissionRule.grant(
-            Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO)
+    val permissionRule = GrantPermissionRule.grant(Manifest.permission.CAMERA)
 
     @get:Rule
     val activityRule: ActivityTestRule<MainActivity> = ActivityTestRule(MainActivity::class.java)

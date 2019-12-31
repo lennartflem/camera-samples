@@ -115,4 +115,6 @@ dependencies {
     androidTestImplementation "androidx.test:rules:1.2.0"
     androidTestImplementation "androidx.test:runner:1.2.0"
     androidTestImplementation "androidx.test.espresso:espresso-core:3.2.0"
+
+    testAnnotationProcessor "com.google.auto.service:auto-service:1.0-rc4"
 }
