@@ -125,21 +125,30 @@ class CameraFragment: Fragment() {
         override fun onDisplayChanged(displayId: Int) = view?.let { view ->
             if (displayId == this@CameraFragment.displayId) {
                 Log.d(LOG_TAG, "Rotation changed: ${view.display.rotation}")
-                updateUiRotation(view.display.rotation)
+                // preview?.setTargetRotation(view.display.rotation)
+                imageCapture?.setTargetRotation(view.display.rotation)
+                imageAnalysis?.setTargetRotation(view.display.rotation)
             }
         } ?: Unit
     }
 
-    // TODO: this needs fixing.
-    private fun updateUiRotation(value: Int){
-        // preview?.setTargetRotation(value)
-        imageCapture?.setTargetRotation(value)
-        imageAnalysis?.setTargetRotation(value)
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
+
         super.onCreate(savedInstanceState)
+
         mainExecutor = ContextCompat.getMainExecutor(requireContext())
+
+        // Determine the output directory
+        outputDirectory = MainActivity.getOutputDirectory(requireContext())
+
+        // Set up the intent filter that will receive events from our main activity
+        val filter = IntentFilter().apply { addAction(KEY_EVENT_ACTION) }
+        broadcastManager = LocalBroadcastManager.getInstance(requireContext())
+        broadcastManager.registerReceiver(volumeDownReceiver, filter)
+
+        // Every time the orientation of device changes, recompute layout
+        displayManager = requireContext().getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
+        displayManager.registerDisplayListener(displayListener, null)
     }
 
     /**
@@ -157,7 +166,6 @@ class CameraFragment: Fragment() {
 
     override fun onDestroyView() {
         super.onDestroyView()
-
         // Unregister the broadcast receivers and listeners
         broadcastManager.unregisterReceiver(volumeDownReceiver)
         displayManager.unregisterDisplayListener(displayListener)
@@ -231,18 +239,6 @@ class CameraFragment: Fragment() {
 
         container = view as ConstraintLayout
         viewFinder = container.findViewById(R.id.view_finder)
-        broadcastManager = LocalBroadcastManager.getInstance(view.context)
-
-        // Set up the intent filter that will receive events from our main activity
-        val filter = IntentFilter().apply { addAction(KEY_EVENT_ACTION) }
-        broadcastManager.registerReceiver(volumeDownReceiver, filter)
-
-        // Every time the orientation of device changes, recompute layout
-        displayManager = requireContext().getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
-        displayManager.registerDisplayListener(displayListener, null)
-
-        // Determine the output directory
-        outputDirectory = MainActivity.getOutputDirectory(requireContext())
 
         // Wait for the views to be properly laid out
         viewFinder.post {
