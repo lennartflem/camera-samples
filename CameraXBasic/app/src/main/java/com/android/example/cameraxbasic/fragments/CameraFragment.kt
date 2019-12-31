@@ -78,20 +78,20 @@ typealias LumaListener = (luma: Double) -> Unit
 class CameraFragment: Fragment() {
 
     private lateinit var container: ConstraintLayout
-    private lateinit var viewFinder: PreviewView
+    private lateinit var broadcastManager: LocalBroadcastManager
+    private lateinit var displayManager: DisplayManager
     private lateinit var outputDirectory: File
     private lateinit var mainExecutor: Executor
-    private lateinit var broadcastManager: LocalBroadcastManager
-    private lateinit var cameraProviderFuture: ListenableFuture<ProcessCameraProvider>
-    private lateinit var cameraProvider: ProcessCameraProvider
-    private lateinit var cameraSelector: CameraSelector
-    private lateinit var displayManager: DisplayManager
+
+    private lateinit var cameraControl: CameraControl
+    private lateinit var cameraInfo: CameraInfo
+    private lateinit var previewView: PreviewView
 
     private var preview: Preview? = null
     private var capture: ImageCapture? = null
     private var analysis: ImageAnalysis? = null
     private var lensFacing: Int = CameraSelector.LENS_FACING_BACK
-    private var displayId = -1
+    private var displayId: Int = -1
 
     /** Volume down button receiver used to trigger shutter */
     private val volumeDownReceiver = object : BroadcastReceiver() {
@@ -119,8 +119,8 @@ class CameraFragment: Fragment() {
 
                 Log.d(LOG_TAG, "Rotation changed: ${view.display.rotation}")
                 // preview?.setTargetRotation(view.display.rotation)
-                capture?.setTargetRotation(view.display.rotation)
-                analysis?.setTargetRotation(view.display.rotation)
+                // capture?.setTargetRotation(view.display.rotation)
+                // analysis?.setTargetRotation(view.display.rotation)
 
             }
         } ?: Unit
@@ -203,7 +203,6 @@ class CameraFragment: Fragment() {
 
             // We can only change the foreground Drawable using API level 23+ API
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-
                 // Update the gallery thumbnail with latest picture taken
                 setGalleryThumbnail(photoFile)
             }
@@ -230,15 +229,15 @@ class CameraFragment: Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
 
         super.onViewCreated(view, savedInstanceState)
-
         container = view as ConstraintLayout
-        viewFinder = container.findViewById(R.id.view_finder)
+
+        previewView = container.findViewById(R.id.previewView)
 
         // Wait for the views to be properly laid out
-        viewFinder.post {
+        previewView.post {
 
             // Keep track of the display in which this view is attached
-            displayId = viewFinder.display.displayId
+            displayId = previewView.display.displayId
 
             // Build UI controls
             updateCameraUi()
@@ -247,7 +246,6 @@ class CameraFragment: Fragment() {
             bindCameraUseCases()
 
             // In the background, load latest photo taken (if any) for gallery thumbnail
-            // TODO: this might cause a race condition & the navigation IllegalArgumentException
             lifecycleScope.launch(Dispatchers.IO) {
                 outputDirectory.listFiles { file ->
                     EXTENSION_WHITELIST.contains(file.extension.toUpperCase(Locale.getDefault()))
@@ -275,35 +273,34 @@ class CameraFragment: Fragment() {
     private fun bindCameraUseCases() {
 
         // Get screen metrics used to setup camera for full screen resolution
-        val metrics = DisplayMetrics().also { viewFinder.display.getRealMetrics(it) }
+        val metrics = DisplayMetrics().also { previewView.display.getRealMetrics(it) }
         Log.d(LOG_TAG, "Screen metrics: ${metrics.widthPixels} x ${metrics.heightPixels}")
-
         val screenAspectRatio = aspectRatio(metrics.widthPixels, metrics.heightPixels)
         Log.d(LOG_TAG, "Preview aspect ratio: $screenAspectRatio")
 
-        val rotation = viewFinder.display.rotation
+        val rotation = previewView.display.rotation
 
         // Bind the cameraProvider to the LifeCycleOwner
-        cameraSelector = CameraSelector.Builder().requireLensFacing(lensFacing).build()
-        cameraProviderFuture = ProcessCameraProvider.getInstance(requireContext())
-
+        val cameraSelector = CameraSelector.Builder().requireLensFacing(lensFacing).build()
+        val cameraProviderFuture = ProcessCameraProvider.getInstance(requireContext())
         cameraProviderFuture.addListener(Runnable {
 
             // CameraProvider
-            cameraProvider = cameraProviderFuture.get()
+            val cameraProvider: ProcessCameraProvider = cameraProviderFuture.get()
 
             // Preview
             preview = Preview.Builder()
-                    .setTargetName("view_finder")
-                    // .setTargetAspectRatio(screenAspectRatio)
-                    // .setTargetRotation(rotation)
+                    .setTargetName("Preview")
+                    .setTargetAspectRatio(screenAspectRatio)
+                    .setTargetRotation(rotation)
                     .build()
 
             // Default PreviewSurfaceProvider
-            preview?.setPreviewSurfaceProvider(viewFinder.previewSurfaceProvider)
+            preview?.setPreviewSurfaceProvider(previewView.previewSurfaceProvider)
 
             // ImageCapture
             capture = ImageCapture.Builder()
+                .setTargetName("Capture")
                 .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
                 // We request aspect ratio but no resolution to match preview config but letting
                 // CameraX optimize for whatever specific resolution best fits requested capture mode
@@ -315,35 +312,47 @@ class CameraFragment: Fragment() {
 
             // ImageAnalysis
             analysis = ImageAnalysis.Builder()
+                .setTargetName("Analysis")
                 .setTargetAspectRatio(screenAspectRatio)
                 .setTargetRotation(rotation)
                 .build()
 
             analysis?.setAnalyzer(mainExecutor, LuminosityAnalyzer { luma ->
                 // Values returned from our analyzer are passed to the attached listener
-                // We log image analysis results here --
-                // you should do something useful instead!
-                //val fps = (analyzer as LuminosityAnalyzer).framesPerSecond
+                // We log image analysis results here - you should do something useful instead!
+                // val fps = (analyzer as LuminosityAnalyzer).framesPerSecond
                 // Log.d(LOG_TAG, "Frames per second: ${"%.01f".format(fps)}")
                 Log.d(LOG_TAG, "Average luminosity: $luma")
             })
 
+            // Must unbind use cases before rebinding them.
+            cameraProvider.unbindAll()
+
             try {
-
-                // Must unbind use cases before rebinding them.
-                cameraProvider.unbindAll()
-
                 // A variable number of use-cases can be passed here.
-                val camera: Camera = cameraProvider.bindToLifecycle(
+                val camera = cameraProvider.bindToLifecycle(
                     this as LifecycleOwner, cameraSelector, preview, capture, analysis
                 )
-                // camera.cameraControl.setZoomRatio(5.0f)
-
+                cameraControl = camera.cameraControl
+                cameraInfo = camera.cameraInfo
+                logCameraInfo()
             } catch(e: Exception) {
                 Log.e(LOG_TAG, "" + e.message)
             }
 
         }, mainExecutor)
+    }
+
+    private fun logCameraInfo() {
+        Log.i(LOG_TAG,
+                "flash unit present: " + cameraInfo.hasFlashUnit() + ", " +
+                      "sensor rotation: " + cameraInfo.sensorRotationDegrees + "°")
+        Log.i(LOG_TAG,
+                "zoom: ratio min: " + cameraInfo.getMinZoomRatio().value + "f, " +
+                      "ratio max: " + cameraInfo.getMaxZoomRatio().value + "f, " +
+                      "ratio current: " + cameraInfo.getZoomRatio().value + "f")
+        Log.i(LOG_TAG,
+                "zoom: " + cameraInfo.getLinearZoom().value + "f linear")
     }
 
     /**
@@ -422,14 +431,12 @@ class CameraFragment: Fragment() {
 
         // Listener for button used to view the most recent photo
         controls.findViewById<AppCompatImageButton>(R.id.photo_view_button).setOnClickListener {
-
-            val controller = findNavController()
-            val dest = CameraFragmentDirections.actionCameraToGallery(outputDirectory.absolutePath)
-
             // Only navigate when the gallery has photos
             if(outputDirectory.listFiles()?.size!! > 0) {
                 try {
-                    controller.navigate(dest)
+                    val dest = CameraFragmentDirections
+                            .actionCameraToGallery(outputDirectory.absolutePath)
+                    findNavController().navigate(dest)
                 } catch(e: IllegalArgumentException) {
                     Log.e(LOG_TAG, "" + e.message)
                 }
@@ -444,8 +451,6 @@ class CameraFragment: Fragment() {
         private const val PHOTO_EXTENSION = ".jpg"
         private const val RATIO_4_3_VALUE = 4.0 / 3.0
         private const val RATIO_16_9_VALUE = 16.0 / 9.0
-
-        private const val CUSTOM_PREVIEW_SURFACE_PROVIDER = false
 
         /** Helper function used to create a timestamped file */
         private fun createFile(baseFolder: File, format: String, extension: String) =
