@@ -91,8 +91,6 @@ class CameraFragment: Fragment() {
     private lateinit var cameraProviderFuture: ListenableFuture<ProcessCameraProvider>
     private lateinit var cameraProvider: ProcessCameraProvider
     private lateinit var cameraSelector: CameraSelector
-
-    /** Internal reference of the [DisplayManager] */
     private lateinit var displayManager: DisplayManager
 
     private var preview: Preview? = null
@@ -318,7 +316,7 @@ class CameraFragment: Fragment() {
                 // you should do something useful instead!
                 //val fps = (analyzer as LuminosityAnalyzer).framesPerSecond
                 // Log.d(LOG_TAG, "Frames per second: ${"%.01f".format(fps)}")
-                Log.d(LOG_TAG, "Average luminosity: $luma");
+                Log.d(LOG_TAG, "Average luminosity: $luma")
             })
 
             // Preview
@@ -339,7 +337,7 @@ class CameraFragment: Fragment() {
                     this as LifecycleOwner, cameraSelector, imageCapture, imageAnalysis, preview
                 )
             } catch(e: Exception) {
-                Log.e(LOG_TAG, "" + e.message);
+                Log.e(LOG_TAG, "" + e.message)
             }
 
         }, mainExecutor)
@@ -420,7 +418,7 @@ class CameraFragment: Fragment() {
         // Listener for button used to view the most recent photo
         controls.findViewById<AppCompatImageButton>(R.id.photo_view_button).setOnClickListener {
 
-            var controller = findNavController()
+            val controller = findNavController()
             val dest = CameraFragmentDirections.actionCameraToGallery(outputDirectory.absolutePath)
 
             // Only navigate when the gallery has photos
