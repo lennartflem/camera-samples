@@ -17,35 +17,38 @@
 package com.android.example.cameraxbasic
 
 import android.Manifest
-import android.content.Context
-import androidx.test.core.app.ApplicationProvider
+import android.view.KeyEvent
+import android.view.View
+import android.widget.FrameLayout
+import androidx.core.view.isVisible
+import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import androidx.test.rule.ActivityTestRule
 import androidx.test.rule.GrantPermissionRule
-import org.junit.Assert.*
+
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
-class MainInstrumentedTest {
+class MainInstrumentationTest {
 
     @get:Rule
     val permissionRule = GrantPermissionRule.grant(Manifest.permission.CAMERA)
 
-    @get:Rule
-    val activityRule: ActivityTestRule<MainActivity> = ActivityTestRule(MainActivity::class.java)
-
     @Test
-    fun useAppContext() {
-        val context = ApplicationProvider.getApplicationContext() as Context
-        assertEquals("com.android.example.cameraxbasic", context.packageName)
-    }
+    fun MainActivityUi() {
 
-    @Test
-    fun getOutputDirectory() {
-        val activity = activityRule.activity as MainActivity
-        val outputDirectory = MainActivity.getOutputDirectory(activity).absolutePath.toString()
-        assertNotNull(outputDirectory)
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+
+            scenario.onActivity { activity: MainActivity ->
+
+                val container = activity.findViewById<View>(R.id.fragment_container)
+                assert(container is FrameLayout)
+                assert(container.isVisible)
+
+                activity.onKeyDown(KeyEvent.KEYCODE_VOLUME_DOWN, KeyEvent(0, KeyEvent.KEYCODE_VOLUME_DOWN))
+                assert(! activity.isFinishing)
+            }
+        }
     }
 }

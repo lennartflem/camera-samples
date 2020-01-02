@@ -173,7 +173,7 @@ class CameraFragment: Fragment() {
     private fun setGalleryThumbnail(file: File) {
 
         // Reference of the view that holds the gallery thumbnail
-        val thumbnail = container.findViewById<AppCompatImageButton>(R.id.photo_view_button)
+        val thumbnail = container.findViewById<AppCompatImageButton>(R.id.photo_gallery_button)
 
         // Run the operations in the view's thread
         thumbnail.post {
@@ -418,7 +418,7 @@ class CameraFragment: Fragment() {
         }
 
         // Listener for button used to view the most recent photo
-        controls.findViewById<AppCompatImageButton>(R.id.photo_view_button).setOnClickListener {
+        controls.findViewById<AppCompatImageButton>(R.id.photo_gallery_button).setOnClickListener {
             // Only navigate when the gallery has photos
             if(outputDirectory.listFiles()?.size!! > 0) {
                 try {
