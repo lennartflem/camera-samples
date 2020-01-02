@@ -55,7 +55,6 @@ import com.android.example.cameraxbasic.R
 import com.android.example.cameraxbasic.utils.*
 import com.bumptech.glide.Glide
 import com.bumptech.glide.request.RequestOptions
-import com.google.common.util.concurrent.ListenableFuture
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.io.File
@@ -219,9 +218,11 @@ class CameraFragment: Fragment() {
             // but otherwise other apps will not be able to access our images unless we
             // scan them using [MediaScannerConnection]
             val mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(photoFile.extension)
-            MediaScannerConnection.scanFile(
-                context, arrayOf(photoFile.absolutePath), arrayOf(mimeType), null
-            )
+            if(!requireActivity().isFinishing) {
+                MediaScannerConnection.scanFile(
+                        context, arrayOf(photoFile.absolutePath), arrayOf(mimeType), null
+                )
+            }
         }
     }
 
@@ -335,24 +336,11 @@ class CameraFragment: Fragment() {
                 )
                 cameraControl = camera.cameraControl
                 cameraInfo = camera.cameraInfo
-                logCameraInfo()
             } catch(e: Exception) {
                 Log.e(LOG_TAG, "" + e.message)
             }
 
         }, mainExecutor)
-    }
-
-    private fun logCameraInfo() {
-        Log.i(LOG_TAG,
-                "flash unit present: " + cameraInfo.hasFlashUnit() + ", " +
-                      "sensor rotation: " + cameraInfo.sensorRotationDegrees + "°")
-        Log.i(LOG_TAG,
-                "zoom: ratio min: " + cameraInfo.getMinZoomRatio().value + "f, " +
-                      "ratio max: " + cameraInfo.getMaxZoomRatio().value + "f, " +
-                      "ratio current: " + cameraInfo.getZoomRatio().value + "f")
-        Log.i(LOG_TAG,
-                "zoom: " + cameraInfo.getLinearZoom().value + "f linear")
     }
 
     /**
