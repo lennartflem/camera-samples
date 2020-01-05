@@ -53,6 +53,7 @@ class LuminosityAnalyzer(listener: LumaListener? = null) : ImageAnalysis.Analyze
      * @return the image analysis result
      */
     override fun analyze(image: ImageProxy) {
+
         // If there are no listeners attached, we don't need to perform analysis
         if (listeners.isEmpty()) return
 

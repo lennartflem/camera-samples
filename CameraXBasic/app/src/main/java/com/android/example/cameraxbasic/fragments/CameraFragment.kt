@@ -89,6 +89,7 @@ class CameraFragment: Fragment() {
     private var preview: Preview? = null
     private var capture: ImageCapture? = null
     private var analysis: ImageAnalysis? = null
+    private var analyzer: LuminosityAnalyzer? = null
     private var lensFacing: Int = CameraSelector.LENS_FACING_BACK
     private var displayId: Int = -1
 
@@ -318,13 +319,12 @@ class CameraFragment: Fragment() {
                 .setTargetRotation(rotation)
                 .build()
 
-            analysis?.setAnalyzer(mainExecutor, LuminosityAnalyzer { luma ->
+            analyzer = LuminosityAnalyzer {luma ->
                 // Values returned from our analyzer are passed to the attached listener
                 // We log image analysis results here - you should do something useful instead!
-                // val fps = (analyzer as LuminosityAnalyzer).framesPerSecond
-                // Log.d(LOG_TAG, "Frames per second: ${"%.01f".format(fps)}")
                 Log.d(LOG_TAG, "Average luminosity: $luma")
-            })
+            }
+            analysis?.setAnalyzer(mainExecutor, analyzer as LuminosityAnalyzer)
 
             // Must unbind use cases before rebinding them.
             cameraProvider.unbindAll()
