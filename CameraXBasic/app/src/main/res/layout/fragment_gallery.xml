@@ -35,8 +35,6 @@
         <ImageButton
             android:id="@+id/back_button"
             android:contentDescription="@string/back_button_alt"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintLeft_toLeftOf="parent"
             android:layout_marginStart="@dimen/margin_xsmall"
             android:layout_marginTop="@dimen/margin_small"
             android:layout_width="@dimen/round_button_small"

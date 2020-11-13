@@ -9,6 +9,6 @@ class CameraXBasic: Application(), CameraXConfig.Provider {
 
     /** @returns Camera2 default configuration */
     override fun getCameraXConfig(): CameraXConfig {
-        return Camera2Config.defaultConfig()
+         return Camera2Config.defaultConfig()
     }
 }

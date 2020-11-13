@@ -24,6 +24,13 @@
     <androidx.camera.view.PreviewView
         android:id="@+id/previewView"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="match_parent"
+    />
+
+    <com.android.example.cameraxbasic.utils.OverlayView
+        android:id="@+id/view_overlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+    />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
